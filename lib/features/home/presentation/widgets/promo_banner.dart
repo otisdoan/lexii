@@ -8,6 +8,10 @@ class PromoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 45,
+        vertical: 20,
+      ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -21,6 +25,7 @@ class PromoBanner extends StatelessWidget {
         border: Border.all(
           color: AppColors.primary.withValues(alpha: 0.1),
         ),
+    
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.1),
@@ -33,6 +38,7 @@ class PromoBanner extends StatelessWidget {
         children: [
           // Background icon
           Positioned(
+          
             top: 0,
             right: 0,
             child: Padding(
