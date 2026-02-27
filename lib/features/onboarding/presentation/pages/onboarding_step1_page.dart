@@ -55,7 +55,7 @@ class OnboardingStep1Page extends StatelessWidget {
                 children: [
                   const SizedBox(height: 16),
                   Text(
-                    'Bắt đầu hành trình chinh phục chứng chỉ IELTS nào!',
+                    'Bắt đầu hành trình chinh phục chứng chỉ TOEIC nào!',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.lexend(
                       fontSize: 28,
@@ -68,7 +68,7 @@ class OnboardingStep1Page extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
-                      'Giờ thì hãy cùng tìm hiểu các Lexii giúp bạn tăng tối đa điểm IELTS nhé',
+                      'Giờ thì hãy cùng tìm hiểu các Lexii giúp bạn tăng tối đa điểm TOEIC nhé',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lexend(
                         fontSize: 16,
@@ -95,7 +95,7 @@ class OnboardingStep1Page extends StatelessWidget {
                         shadowColor: AppColors.primary.withValues(alpha: 0.3),
                       ),
                       child: Text(
-                        'Bắt đầu nào',
+                        'Bắt đầu nào',  
                         style: GoogleFonts.lexend(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,

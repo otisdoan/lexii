@@ -27,7 +27,7 @@ class LexiiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Lexii IELTS®',
+      title: 'Lexii TOEIC®',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,

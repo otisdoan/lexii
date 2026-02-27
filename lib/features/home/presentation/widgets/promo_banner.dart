@@ -106,7 +106,7 @@ class PromoBanner extends StatelessWidget {
                     children: const [
                       TextSpan(text: 'Mở cơ hội'),
                       TextSpan(
-                        text: ' IELTS 9.0',
+                        text: ' 900+ TOEIC',
                         style: TextStyle(color: AppColors.primary),
                       ),
                     ],

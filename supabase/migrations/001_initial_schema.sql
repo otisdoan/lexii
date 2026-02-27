@@ -1,5 +1,5 @@
 -- ============================================
--- LEXII IELTS - SUPABASE DATABASE MIGRATION
+-- LEXII TOEIC - SUPABASE DATABASE MIGRATION
 -- ============================================
 
 -- 1. PROFILES TABLE (extends auth.users)

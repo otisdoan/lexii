@@ -165,7 +165,7 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Lexii - Luyện thi IELTS tốt nhất',
+          'Lexii - Luyện thi TOEIC tốt nhất',
           style: GoogleFonts.lexend(
             fontSize: 16,
             fontWeight: FontWeight.w400,
