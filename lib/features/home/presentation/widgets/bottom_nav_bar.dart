@@ -22,10 +22,11 @@ class BottomNavBar extends StatelessWidget {
         ),
       ),
       child: SafeArea(
+        
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row( 
             children: [
               _NavItem(
                 icon: Icons.local_library,
@@ -90,7 +91,9 @@ class _NavItem extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Column(
+            SizedBox(
+              width: double.infinity,
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Icon container
@@ -119,8 +122,9 @@ class _NavItem extends StatelessWidget {
                     color:
                         isActive ? AppColors.primary : AppColors.textSlate500,
                   ),
-                ),
+                    ),
               ],
+            ),
             ),
             // Badge
             if (badge != null)
