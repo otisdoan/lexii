@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Listening Question Screen</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0d9186",
+              "primary-dark": "#0a756c",
+              "background-light": "#f6f8f8",
+              "background-dark": "#102220",
+              "secondary": "#eab308", // Mustard/Yellow for accents
+            },
+            fontFamily: {
+              "display": ["Lexend", "sans-serif"],
+              "body": ["Lexend", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "1rem",
+              "lg": "1.5rem", 
+              "xl": "2rem",
+              "2xl": "2.5rem",
+              "full": "9999px"
+            },
+            boxShadow: {
+                'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Lexend', sans-serif;
+        }
+        /* Custom slider thumb styling */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #f97316; /* Orange thumb */
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 2px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #4b5563;
+            border-radius: 2px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light text-slate-900 min-h-screen flex flex-col items-center justify-start overflow-x-hidden antialiased selection:bg-primary/20">
+<div class="w-full max-w-md bg-white min-h-screen relative shadow-2xl flex flex-col">
+<!-- Top App Bar -->
+<header class="flex items-center justify-between px-4 py-3 bg-white sticky top-0 z-20 border-b border-slate-100">
+<button class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors text-slate-800">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold text-slate-800 tracking-tight">Câu 1/200</h1>
+<button class="px-4 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded-full text-sm transition-colors">
+                Nộp bài
+            </button>
+</header>
+<!-- Timer & Tools Section -->
+<div class="px-4 py-4 bg-white">
+<!-- Timer Display -->
+<div class="flex justify-center gap-3 mb-6">
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 bg-background-light rounded-2xl flex items-center justify-center shadow-inner-soft">
+<span class="text-xl font-bold text-slate-800">01</span>
+</div>
+<span class="text-xs text-slate-400 mt-1 font-medium">Hours</span>
+</div>
+<div class="flex flex-col justify-start pt-2">
+<span class="text-xl font-bold text-slate-300">:</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 bg-background-light rounded-2xl flex items-center justify-center shadow-inner-soft">
+<span class="text-xl font-bold text-slate-800">59</span>
+</div>
+<span class="text-xs text-slate-400 mt-1 font-medium">Minutes</span>
+</div>
+<div class="flex flex-col justify-start pt-2">
+<span class="text-xl font-bold text-slate-300">:</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 bg-background-light rounded-2xl flex items-center justify-center shadow-inner-soft">
+<span class="text-xl font-bold text-primary">57</span>
+</div>
+<span class="text-xs text-slate-400 mt-1 font-medium">Seconds</span>
+</div>
+</div>
+<!-- Toolbar Icons -->
+<div class="flex justify-between items-center bg-background-light/50 p-2 rounded-2xl border border-slate-100">
+<button class="p-3 text-slate-500 hover:text-primary hover:bg-white rounded-xl transition-all">
+<span class="material-symbols-outlined">report_problem</span>
+</button>
+<button class="p-3 text-slate-500 hover:text-primary hover:bg-white rounded-xl transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="p-3 text-slate-500 hover:text-primary hover:bg-white rounded-xl transition-all">
+<span class="material-symbols-outlined">favorite</span>
+</button>
+<button class="p-3 text-slate-500 hover:text-primary hover:bg-white rounded-xl transition-all">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+<button class="p-3 text-slate-500 hover:text-primary hover:bg-white rounded-xl transition-all">
+<span class="material-symbols-outlined">pause_circle</span>
+</button>
+</div>
+</div>
+<!-- Scrollable Content Area -->
+<div class="flex-1 overflow-y-auto pb-32 bg-background-light rounded-t-[2.5rem] shadow-inner-soft">
+<div class="p-5 flex flex-col gap-6">
+<!-- Question Card -->
+<div class="bg-white rounded-3xl shadow-soft overflow-hidden">
+<div class="bg-secondary/10 px-5 py-3 border-b border-secondary/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-yellow-600 text-lg">image</span>
+<h3 class="text-yellow-700 font-bold text-sm uppercase tracking-wide">Select the answer</h3>
+</div>
+<div class="p-5">
+<div class="rounded-2xl border-2 border-slate-100 overflow-hidden bg-slate-50 relative aspect-[4/3]">
+<img alt="Students in a classroom setting" class="w-full h-full object-cover" data-alt="Students studying in a classroom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWu6BoacGjQpqY_ZOSezv0QTDr7iAXwE438-4TaZzW41IgXVQeac5PNQfABoWz982TiNa6AsAaH5xHDLC96IUg_tHiZAtTJsbcRnJe11gAB3zGQUTDQvFE_BRDozpmUlA6ZVLYqOWm3HLNHYrLOKEwFE9NHW5vBjuRkKcZ2OJ9MzRF6u-lQNny2csz1Z4LND2cxn5vYR5rrLAbUk5VD4uuj3CGM2tfmIvymK2uBTjt-W-rEEt94jDY9mab9JqysYalikGgrr08wwDY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
+</div>
+</div>
+</div>
+<!-- Answer Options -->
+<div class="flex flex-col gap-3">
+<button class="group flex items-center gap-4 p-3 bg-white hover:bg-green-50 rounded-2xl border border-transparent hover:border-green-200 shadow-sm transition-all active:scale-[0.99]">
+<div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-green-100 text-slate-600 group-hover:text-green-700 font-bold flex items-center justify-center shrink-0 transition-colors">
+                            A
+                        </div>
+<span class="text-slate-700 font-medium text-left flex-1">They are sitting in a circle.</span>
+<div class="w-5 h-5 rounded-full border-2 border-slate-200 group-hover:border-green-500 mr-2"></div>
+</button>
+<button class="group flex items-center gap-4 p-3 bg-white ring-2 ring-primary bg-primary/5 rounded-2xl shadow-sm transition-all active:scale-[0.99]">
+<div class="w-10 h-10 rounded-full bg-primary text-white font-bold flex items-center justify-center shrink-0 shadow-lg shadow-primary/30">
+                            B
+                        </div>
+<span class="text-slate-900 font-semibold text-left flex-1">They are working on computers.</span>
+<div class="w-5 h-5 rounded-full border-4 border-primary bg-white mr-2"></div>
+</button>
+<button class="group flex items-center gap-4 p-3 bg-white hover:bg-green-50 rounded-2xl border border-transparent hover:border-green-200 shadow-sm transition-all active:scale-[0.99]">
+<div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-green-100 text-slate-600 group-hover:text-green-700 font-bold flex items-center justify-center shrink-0 transition-colors">
+                            C
+                        </div>
+<span class="text-slate-700 font-medium text-left flex-1">One woman is standing up.</span>
+<div class="w-5 h-5 rounded-full border-2 border-slate-200 group-hover:border-green-500 mr-2"></div>
+</button>
+<button class="group flex items-center gap-4 p-3 bg-white hover:bg-green-50 rounded-2xl border border-transparent hover:border-green-200 shadow-sm transition-all active:scale-[0.99]">
+<div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-green-100 text-slate-600 group-hover:text-green-700 font-bold flex items-center justify-center shrink-0 transition-colors">
+                            D
+                        </div>
+<span class="text-slate-700 font-medium text-left flex-1">The room is empty.</span>
+<div class="w-5 h-5 rounded-full border-2 border-slate-200 group-hover:border-green-500 mr-2"></div>
+</button>
+</div>
+</div>
+</div>
+<!-- Audio Control Bar (Fixed Bottom) -->
+<div class="absolute bottom-0 left-0 right-0 bg-slate-900 p-4 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.15)] z-30">
+<div class="flex flex-col gap-2">
+<!-- Title Row -->
+<div class="flex justify-between items-center mb-1">
+<div class="flex flex-col">
+<span class="text-white font-semibold text-sm">Question 1 Audio</span>
+<span class="text-slate-400 text-xs">TOEIC Listening Part 1</span>
+</div>
+<button class="text-slate-400 hover:text-white">
+<span class="material-symbols-outlined text-xl">more_vert</span>
+</button>
+</div>
+<!-- Slider Row -->
+<div class="flex items-center gap-3">
+<span class="text-slate-400 text-xs font-mono w-8 text-right">00:01</span>
+<div class="flex-1 relative h-4 flex items-center">
+<input class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" max="100" min="0" type="range" value="4"/>
+</div>
+<span class="text-slate-400 text-xs font-mono w-8">00:25</span>
+</div>
+<!-- Controls Row -->
+<div class="flex items-center justify-center gap-8 mt-1">
+<button class="text-slate-400 hover:text-white transition-colors p-2">
+<span class="material-symbols-outlined">replay_5</span>
+</button>
+<button class="w-14 h-14 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 transition-all transform active:scale-95">
+<span class="material-symbols-outlined text-3xl filled">play_arrow</span>
+</button>
+<button class="text-slate-400 hover:text-white transition-colors p-2">
+<span class="material-symbols-outlined">forward_5</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 
@@ -29,18 +30,20 @@ class ExamGrid extends StatelessWidget {
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
           childAspectRatio: 0.9,
-          children: const [
+          children: [
             _ExamCard(
               icon: Icons.laptop_chromebook,
               title: 'Thi thử Online',
               bgColor: AppColors.indigo100,
               iconColor: AppColors.indigo600,
+              onTap: () => context.push('/exam/mock-test'),
             ),
             _ExamCard(
               icon: Icons.quiz,
               title: 'Thi thử',
               bgColor: AppColors.teal100,
               iconColor: AppColors.primary,
+              onTap: () => context.push('/exam/mock-test'),
             ),
             _ExamCard(
               icon: Icons.verified,
@@ -48,6 +51,7 @@ class ExamGrid extends StatelessWidget {
               bgColor: AppColors.red100,
               iconColor: AppColors.red600,
               badge: 'HOT',
+              onTap: () {},
             ),
             _ExamCard(
               icon: Icons.import_contacts,
@@ -55,18 +59,21 @@ class ExamGrid extends StatelessWidget {
               bgColor: AppColors.green100,
               iconColor: AppColors.green600,
               badge: 'FREE',
+              onTap: () {},
             ),
             _ExamCard(
               icon: Icons.upgrade,
               title: 'Nâng cấp',
               bgColor: AppColors.amber100,
               iconColor: AppColors.amber600,
+              onTap: () {},
             ),
             _ExamCard(
               icon: Icons.settings,
               title: 'Cài đặt',
               bgColor: AppColors.slate100,
               iconColor: AppColors.textSlate600,
+              onTap: () {},
             ),
           ],
         ),
@@ -81,12 +88,14 @@ class _ExamCard extends StatelessWidget {
   final Color bgColor;
   final Color iconColor;
   final String? badge;
+  final VoidCallback onTap;
 
   const _ExamCard({
     required this.icon,
     required this.title,
     required this.bgColor,
     required this.iconColor,
+    required this.onTap,
     this.badge,
   });
 
@@ -96,7 +105,7 @@ class _ExamCard extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(12),

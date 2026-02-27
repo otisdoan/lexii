@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lexii/features/home/presentation/widgets/dashboard_header.dart';
 import 'package:lexii/features/home/presentation/widgets/promo_banner.dart';
 import 'package:lexii/features/home/presentation/widgets/practice_grid.dart';
@@ -17,6 +18,15 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _currentNavIndex = 0;
+
+  void _onNavTap(int index) {
+    if (index == 1) {
+      // Thi tab → navigate to Mock Test page
+      context.push('/exam/mock-test');
+      return;
+    }
+    setState(() => _currentNavIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +63,9 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentNavIndex,
-        onTap: (index) {
-          setState(() => _currentNavIndex = index);
-        },
+        onTap: _onNavTap,
       ),
     );
   }
 }
+

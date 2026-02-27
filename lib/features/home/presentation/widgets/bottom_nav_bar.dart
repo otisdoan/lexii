@@ -36,13 +36,13 @@ class BottomNavBar extends StatelessWidget {
               ),
               _NavItem(
                 icon: Icons.schedule,
-                label: 'Lịch sử',
+                label: 'Thi',
                 isActive: currentIndex == 1,
                 onTap: () => onTap(1),
               ),
               _NavItem(
                 icon: Icons.workspace_premium,
-                label: 'Chứng chỉ',
+                label: 'Lộ trình',
                 isActive: currentIndex == 2,
                 onTap: () => onTap(2),
               ),

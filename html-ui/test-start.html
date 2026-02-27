@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0d9488",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#102220",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Lexend', sans-serif;
+        }
+        .wave-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 25%;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .wave {
+            position: absolute;
+            bottom: 0;
+            width: 200%;
+            height: 100%;
+            background: #0d9488;
+            opacity: 0.1;
+            border-radius: 45%;
+        }
+        .wave-1 { left: -50%; bottom: -10%; transform: rotate(5deg); }
+        .wave-2 { left: -30%; bottom: -15%; background: #0d9488; opacity: 0.05; transform: rotate(-5deg); border-radius: 40%; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col relative overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between p-4 z-10">
+<button class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">arrow_back</span>
+</button>
+<div class="w-10"></div> <!-- Spacer to balance flexbox -->
+</header>
+<!-- Main Content -->
+<main class="flex-grow flex flex-col items-center px-6 pt-4 text-center z-10">
+<!-- Title & Subtitle -->
+<h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Test 10 ETS 2023</h1>
+<p class="mt-2 text-slate-600 dark:text-slate-400 font-medium">Thời gian: 120 phút • Câu hỏi: 200</p>
+<!-- Illustration Area -->
+<div class="flex-grow flex items-center justify-center w-full max-w-sm">
+<div class="relative w-full aspect-square flex items-center justify-center">
+<!-- Mascot Illustration -->
+<div class="w-72 h-72 bg-primary/10 rounded-full absolute"></div>
+<img class="w-64 h-64 object-contain relative z-10" data-alt="Friendly ninja student mascot holding a training sword" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD71V3fx3hxdzJaHYiyzzj4AOGYZpzVdi-prEpswjcDOsAfCD9aQwf-E5fErzrhD54fvIY4Jz8hm-rgX-FzMqgBiJbSk3XizIW67JRZsBqxsZO7AORzhY4VqcrKe6pgbG8soqAtc2UI5AveOHjMrzSliqs7PdjJkmmAbFEts0bTyRYQtCe7mD7x5jNeGQIs4tyT7sT2s3wa4jszRgGc0M2Fnmr4F-hj-SYlptUZCzf8ZiRdmZ9U-n_iY1oNV_TIKPDSaOlGcPAznAz9"/>
+</div>
+</div>
+<!-- Info Cards -->
+<div class="grid grid-cols-2 gap-4 w-full max-w-sm mb-8">
+<div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+<span class="material-symbols-outlined text-primary mb-2">menu_book</span>
+<p class="text-xs text-slate-500 dark:text-slate-400">Dạng đề</p>
+<p class="font-semibold text-slate-800 dark:text-slate-100">TOEIC Full</p>
+</div>
+<div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+<span class="material-symbols-outlined text-primary mb-2">trending_up</span>
+<p class="text-xs text-slate-500 dark:text-slate-400">Độ khó</p>
+<p class="font-semibold text-slate-800 dark:text-slate-100">Trung bình</p>
+</div>
+</div>
+</main>
+<!-- Bottom Action Area -->
+<footer class="p-6 pb-12 z-10 flex flex-col items-center">
+<button class="w-full max-w-sm bg-primary hover:bg-primary/90 text-white font-semibold py-4 rounded-full shadow-lg shadow-primary/20 transition-all active:scale-95">
+            Bắt đầu nào
+        </button>
+<p class="mt-4 text-xs text-slate-400 dark:text-slate-500">Hãy đảm bảo kết nối internet ổn định</p>
+</footer>
+<!-- Layered Background Waves -->
+<div class="wave-container pointer-events-none">
+<div class="wave wave-1"></div>
+<div class="wave wave-2"></div>
+</div>
+</body></html>

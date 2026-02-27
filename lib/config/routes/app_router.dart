@@ -7,6 +7,10 @@ import 'package:lexii/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:lexii/features/home/presentation/pages/dashboard_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_detail_page.dart';
 import 'package:lexii/features/practice/domain/entities/skill_configs.dart';
+import 'package:lexii/features/exam/presentation/pages/mock_test_page.dart';
+import 'package:lexii/features/exam/presentation/pages/test_start_page.dart';
+import 'package:lexii/features/exam/presentation/pages/part_intro_page.dart';
+import 'package:lexii/features/exam/presentation/pages/listening_question_page.dart';
 
 class AppRouter {
   static late final GoRouter router;
@@ -99,6 +103,63 @@ class AppRouter {
             transitionsBuilder: _slideUpTransition,
           ),
         ),
+        GoRoute(
+          path: '/exam/mock-test',
+          name: 'mockTest',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const MockTestPage(),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        // Test flow routes
+        GoRoute(
+          path: '/exam/test-start',
+          name: 'testStart',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: TestStartPage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+                duration: extra['duration'] as int? ?? 120,
+                totalQuestions: extra['totalQuestions'] as int? ?? 200,
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/exam/part-intro',
+          name: 'partIntro',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PartIntroPage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/exam/question',
+          name: 'examQuestion',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: ListeningQuestionPage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
       ],
     );
   }
@@ -110,6 +171,22 @@ class AppRouter {
     Widget child,
   ) {
     const begin = Offset(0.0, 1.0);
+    const end = Offset.zero;
+    final tween = Tween(begin: begin, end: end)
+        .chain(CurveTween(curve: Curves.easeOutCubic));
+    return SlideTransition(
+      position: animation.drive(tween),
+      child: child,
+    );
+  }
+
+  static Widget _slideRightTransition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    const begin = Offset(1.0, 0.0);
     const end = Offset.zero;
     final tween = Tween(begin: begin, end: end)
         .chain(CurveTween(curve: Curves.easeOutCubic));
