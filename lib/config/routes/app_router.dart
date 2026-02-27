@@ -5,6 +5,8 @@ import 'package:lexii/core/constants/app_constants.dart';
 import 'package:lexii/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:lexii/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:lexii/features/home/presentation/pages/dashboard_page.dart';
+import 'package:lexii/features/practice/presentation/pages/practice_detail_page.dart';
+import 'package:lexii/features/practice/domain/entities/skill_configs.dart';
 
 class AppRouter {
   static late final GoRouter router;
@@ -60,7 +62,60 @@ class AppRouter {
             },
           ),
         ),
+        // Practice skill routes
+        GoRoute(
+          path: '/practice/listening',
+          name: 'listening',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: PracticeDetailPage(config: SkillConfigs.listening),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        GoRoute(
+          path: '/practice/reading',
+          name: 'reading',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: PracticeDetailPage(config: SkillConfigs.reading),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        GoRoute(
+          path: '/practice/speaking',
+          name: 'speaking',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: PracticeDetailPage(config: SkillConfigs.speaking),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        GoRoute(
+          path: '/practice/writing',
+          name: 'writing',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: PracticeDetailPage(config: SkillConfigs.writing),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
       ],
+    );
+  }
+
+  static Widget _slideUpTransition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    const begin = Offset(0.0, 1.0);
+    const end = Offset.zero;
+    final tween = Tween(begin: begin, end: end)
+        .chain(CurveTween(curve: Curves.easeOutCubic));
+    return SlideTransition(
+      position: animation.drive(tween),
+      child: child,
     );
   }
 }

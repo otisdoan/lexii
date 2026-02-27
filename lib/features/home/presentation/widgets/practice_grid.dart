@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 
@@ -51,21 +52,25 @@ class PracticeGrid extends StatelessWidget {
               icon: Icons.headphones,
               title: 'Nghe Hiểu',
               subtitle: 'Listening',
+              route: '/practice/listening',
             ),
             _PracticeCard(
               icon: Icons.menu_book,
               title: 'Đọc Hiểu',
               subtitle: 'Reading',
+              route: '/practice/reading',
             ),
             _PracticeCard(
               icon: Icons.mic,
               title: 'Luyện nói',
               subtitle: 'Speaking',
+              route: '/practice/speaking',
             ),
             _PracticeCard(
               icon: Icons.edit,
               title: 'Viết',
               subtitle: 'Writing',
+              route: '/practice/writing',
             ),
           ],
         ),
@@ -78,11 +83,13 @@ class _PracticeCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final String route;
 
   const _PracticeCard({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.route,
   });
 
   @override
@@ -91,7 +98,7 @@ class _PracticeCard extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: () {},
+        onTap: () => context.push(route),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -113,7 +120,7 @@ class _PracticeCard extends StatelessWidget {
               Container(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.teal50,
                 ),
@@ -147,3 +154,4 @@ class _PracticeCard extends StatelessWidget {
     );
   }
 }
+
