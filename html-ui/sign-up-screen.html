@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Migii Sign Up</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0d968b",
+              "primary-dark": "#0a756c",
+              "background-light": "#f6f8f8",
+              "background-dark": "#102220",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1a2c2a",
+              "input-border": "#dbe6e5",
+            },
+            fontFamily: {
+              "display": ["Lexend", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        /* Custom scrollbar hiding for cleaner mobile look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-center">
+<!-- Main Container -->
+<div class="relative flex w-full max-w-md flex-col overflow-x-hidden bg-background-light dark:bg-background-dark min-h-screen">
+<!-- Header / Navigation -->
+<div class="sticky top-0 z-10 flex items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md p-4 pb-2 justify-between">
+<button class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" style="">
+<span class="material-symbols-outlined" style="">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12" style="">Đăng ký</h2>
+</div>
+<!-- Scrollable Content Area -->
+<div class="flex-1 flex flex-col px-6 pb-8">
+<!-- Mascot Section -->
+<div class="flex flex-col items-center gap-6 mt-4 mb-8">
+<div class="relative">
+<!-- Decorative background shape -->
+<div class="absolute inset-0 bg-primary/20 dark:bg-primary/10 rounded-full scale-110 blur-xl"></div>
+<div class="relative bg-center bg-no-repeat bg-cover rounded-full h-32 w-32 shadow-lg border-4 border-white dark:border-surface-dark" data-alt="Friendly ninja student mascot waving hello" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDWVawJrEdxUuObXH-_Q7S7xQWITMXLhPE8pK8RknkXM0FlJEVxDu9pptibOSpsemk3NGrdwvFGEcGExYSGRMLb9Mk9Db5CEsKDz7pbOJAGe7rY06cLAN-EpuYuknmMdRkUFehADmFQG4l1UsYvD5nFZQ6oCHLZ_n6qrsG9ye22DaMdW4hgAmEslYSQp_uHsssAoa2gronnqpsM5XRt4xwyyy8RgRlExDKC6wrYJVI8GtHq7MxGsA30bRLNs2ACImuG272XUv50fizW&quot;);">
+</div>
+</div>
+<div class="flex flex-col items-center justify-center">
+<h1 class="text-slate-900 dark:text-slate-50 text-[26px] font-bold leading-tight tracking-tight text-center mb-2" style="">Tạo tài khoản</h1>
+<p class="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal text-center" style="">Lexii - Luyện thi IELTS tốt nhất</p>
+</div>
+</div>
+<!-- Form Fields -->
+<form class="flex flex-col gap-4 w-full">
+<!-- Name Input -->
+<div class="flex flex-col">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-primary dark:text-primary/80">
+<span class="material-symbols-outlined text-[20px]" style="">person</span>
+</div>
+<input class="form-input w-full rounded-xl border border-input-border dark:border-slate-700 bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 h-14 pl-12 pr-4 text-base focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all shadow-sm" placeholder="Họ và tên *" required="" type="text">
+</div>
+</div>
+<!-- Email Input -->
+<div class="flex flex-col">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-primary dark:text-primary/80">
+<span class="material-symbols-outlined text-[20px]" style="">mail</span>
+</div>
+<input class="form-input w-full rounded-xl border border-input-border dark:border-slate-700 bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 h-14 pl-12 pr-4 text-base focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all shadow-sm" placeholder="Email *" required="" type="email">
+</div>
+</div>
+<!-- Phone Input -->
+<div class="flex flex-col">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-primary dark:text-primary/80">
+<span class="material-symbols-outlined text-[20px]" style="">phone_iphone</span>
+</div>
+<input class="form-input w-full rounded-xl border border-input-border dark:border-slate-700 bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 h-14 pl-12 pr-4 text-base focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all shadow-sm" placeholder="Số điện thoại" type="tel">
+</div>
+</div>
+<!-- Password Input -->
+<div class="flex flex-col">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-primary dark:text-primary/80">
+<span class="material-symbols-outlined text-[20px]" style="">lock</span>
+</div>
+<input class="form-input w-full rounded-xl border border-input-border dark:border-slate-700 bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 h-14 pl-12 pr-12 text-base focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all shadow-sm" placeholder="Mật khẩu *" required="" type="password">
+<button class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" type="button" style="">
+<span class="material-symbols-outlined text-[20px]" style="">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Confirm Password Input -->
+<div class="flex flex-col">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-primary dark:text-primary/80">
+<span class="material-symbols-outlined text-[20px]" style="">lock_reset</span>
+</div>
+<input class="form-input w-full rounded-xl border border-input-border dark:border-slate-700 bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 h-14 pl-12 pr-12 text-base focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all shadow-sm" placeholder="Nhập lại mật khẩu *" required="" type="password">
+<button class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" type="button" style="">
+<span class="material-symbols-outlined text-[20px]" style="">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Submit Button -->
+<button class="mt-4 flex w-full items-center justify-center rounded-xl bg-primary hover:bg-primary-dark text-white font-bold h-14 shadow-md hover:shadow-lg transition-all active:scale-[0.98]" type="submit" style="">
+                    Đăng ký
+                </button>
+<!-- Helper Text -->
+<p class="text-orange-500 text-xs font-medium text-center mt-1" style="">
+                    Dấu * là trường bắt buộc điền thông tin
+                </p>
+</form>
+<!-- Social Login Section -->
+<div class="mt-8 flex flex-col gap-6">
+<div class="relative flex items-center w-full">
+<div class="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+<span class="flex-shrink-0 mx-4 text-slate-400 text-sm font-medium" style="">hoặc</span>
+<div class="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+</div>
+<button class="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-surface-light dark:bg-surface-dark h-14 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm" style="">
+<svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+                    Đăng nhập bằng Google
+                </button>
+</div>
+<!-- Login Link -->
+<div class="mt-8 text-center">
+<p class="text-slate-500 dark:text-slate-400 text-sm" style="">
+                    Đã có tài khoản? 
+                    <a class="text-primary hover:text-primary-dark font-semibold ml-1" href="#" style="">Đăng nhập ngay</a>
+</p>
+</div>
+</div>
+</div>
+</body></html>

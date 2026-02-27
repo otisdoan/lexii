@@ -1,0 +1,110 @@
+<!DOCTYPE html><html lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Migii TOEIC - Permission Onboarding</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0d9488',
+            'primary-dark': '#0f766e',
+            'neutral-dark': '#1f2937',
+            'neutral-light': '#6b7280',
+          },
+          borderRadius: {
+            '4xl': '2rem',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-animations">
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+    .floating {
+      animation: float 4s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased text-neutral-dark min-h-screen flex flex-col">
+<!-- BEGIN: MainContainer -->
+<main class="flex-1 flex flex-col max-w-md mx-auto w-full bg-white shadow-sm overflow-hidden min-h-[100dvh]">
+<!-- BEGIN: HeaderSection -->
+<header class="pt-12 px-8 text-center" data-purpose="onboarding-header">
+<h1 class="text-2xl font-bold text-slate-800 mb-3" style="">Nhắc nhở hàng ngày</h1>
+<p class="text-neutral-light leading-relaxed" style="">
+        Hãy đăng ký nhận nhắc nhở mỗi ngày để duy trì tiến độ học tập nha?
+      </p>
+</header>
+<!-- END: HeaderSection -->
+<!-- BEGIN: IllustrationSection -->
+<section class="flex-1 flex items-center justify-center p-8 relative" data-purpose="visual-illustration">
+<!-- Phone Mockup Container -->
+<div class="relative w-64 h-[420px] bg-slate-800 rounded-[3rem] border-[6px] border-slate-700 shadow-2xl flex flex-col overflow-hidden" data-purpose="device-mockup">
+<!-- Speaker/Notch -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-slate-700 rounded-b-xl z-10"></div>
+<!-- Inner Screen -->
+<div class="flex-1 bg-slate-100 p-4 flex flex-col items-center justify-center relative">
+<!-- Background Decoration inside phone -->
+<div class="absolute inset-0 bg-gradient-to-b from-teal-50/50 to-white/20"></div>
+<!-- Notification Card -->
+<div class="floating w-full bg-white/95 backdrop-blur shadow-lg rounded-2xl p-3 border border-slate-200 z-20" data-purpose="notification-card">
+<div class="flex items-center gap-3">
+<!-- Mascot Icon Placeholder -->
+<div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
+<img alt="Migii Mascot" class="rounded-lg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDU6Z1r-b4hDq7PlyQWC9KM-Ot1f8H3C5VsNuuKxIRx2QDSASzechlmUnQTmA3bLKkuHZHg2AArO_jDjb-Rhl3OGhQ18IxVZtV2pvoax1mLXAk1jnXjacFVnrGGZYnueEkf8GXZrI5pa1L-JKmSG4pBesKzaX_S9DUlpJmfOD83l3c0I8Nn_VRRWYk6-ZA5tctXRMBCAtZz9MdrLLWwhg0JFb5RU4cx_v03s-UdlAg-ed_TCeZbrbC507n0ib49H0k63CEY2hEmuKE9" style="">
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center">
+<span class="text-xs font-bold text-slate-600" style="">Lexii</span>
+<span class="text-[10px] text-slate-400" style="">Vừa xong</span>
+</div>
+<p class="text-sm font-medium text-slate-800" style="">Bạn ơi, đến giờ học rồi</p>
+</div>
+</div>
+</div>
+<!-- Abstract Phone Content UI -->
+<div class="mt-8 space-y-4 w-full opacity-20">
+<div class="h-4 w-3/4 bg-slate-300 rounded-full mx-auto"></div>
+<div class="grid grid-cols-2 gap-2 px-2">
+<div class="h-20 bg-slate-200 rounded-xl"></div>
+<div class="h-20 bg-slate-200 rounded-xl"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: IllustrationSection -->
+<!-- BEGIN: ActionSection -->
+<footer class="p-8 pb-12 space-y-4" data-purpose="user-actions">
+<!-- Primary Action -->
+<button class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-teal-900/10" data-purpose="primary-button" id="btn-agree" style="">
+        Đồng ý
+      </button>
+<!-- Secondary Action -->
+<button class="w-full bg-transparent border-2 border-slate-200 text-neutral-light font-semibold py-4 rounded-2xl hover:bg-slate-50 transition-all active:scale-95" data-purpose="secondary-button" id="btn-later" style="">
+        Để sau
+      </button>
+</footer>
+<!-- END: ActionSection -->
+</main>
+<!-- END: MainContainer -->
+<script data-purpose="ui-interactivity">
+    // Subtle button feedback for mobile feel
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(btn => {
+      btn.addEventListener('touchstart', function() {
+        this.classList.add('opacity-90');
+      });
+      btn.addEventListener('touchend', function() {
+        this.classList.remove('opacity-90');
+      });
+    });
+  </script>
+</body></html>

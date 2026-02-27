@@ -1,0 +1,265 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Migii TOEIC Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0d9488", // Updated to teal #0d9488
+                        "secondary": "#e0f2f1", // Light teal tint
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                        "teal-custom": "#0d9488",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem",
+                        "lg": "1.25rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(13, 148, 136, 0.1)',
+                        'card': '0 2px 10px rgba(0, 0, 0, 0.03)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden">
+<div class="relative mx-auto max-w-md w-full bg-white dark:bg-background-dark min-h-screen pb-24 shadow-2xl overflow-hidden">
+<header class="sticky top-0 z-50 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
+<div class="w-10"></div> 
+<h1 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight" style="">Lexii IELTS®</h1>
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300" style="">
+<span class="material-symbols-outlined text-2xl" style="">tune</span>
+</button>
+</header>
+<div class="p-4 space-y-6">
+<div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-soft border border-primary/10">
+<div class="absolute top-0 right-0 p-3 opacity-10">
+<span class="material-symbols-outlined text-9xl text-primary" style="">school</span>
+</div>
+<div class="relative p-5 flex flex-col items-start gap-4">
+<div class="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1 rounded-full shadow-sm">
+<span class="text-xs font-bold text-primary uppercase tracking-wider" style="">Nhận voucher</span>
+<span class="flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+</div>
+<div class="space-y-1">
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white leading-tight" style="">Mở cơ hội<span class="text-primary" style="">&nbsp;IELTS 9.0</span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-sm" style="">Giảm giá đặc biệt lên tới <span class="font-bold text-red-500 text-lg" style="">50%</span></p>
+</div>
+<button class="group flex items-center gap-2 bg-primary hover:bg-teal-700 text-white px-5 py-2.5 rounded-full shadow-lg shadow-primary/30 transition-all active:scale-95" style="">
+<span class="font-semibold text-sm" style="">Nâng cấp ngay</span>
+<span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform" style="">arrow_forward</span>
+</button>
+</div>
+</div>
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100" style="">Luyện tập</h3>
+<a class="text-xs font-medium text-primary hover:underline" href="#" style="">Xem tất cả</a>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card hover:shadow-soft transition-all active:scale-95 flex flex-col items-center gap-3 border border-slate-100 dark:border-slate-700" style="">
+<div class="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-primary dark:text-teal-400">
+<span class="material-symbols-outlined text-2xl" style="">headphones</span>
+</div>
+<div class="text-center">
+<p class="font-semibold text-slate-900 dark:text-slate-100" style="">Nghe Hiểu</p>
+<p class="text-xs text-slate-500 dark:text-slate-400" style="">Listening</p>
+</div>
+</button>
+<button class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card hover:shadow-soft transition-all active:scale-95 flex flex-col items-center gap-3 border border-slate-100 dark:border-slate-700" style="">
+<div class="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-primary dark:text-teal-400">
+<span class="material-symbols-outlined text-2xl" style="">menu_book</span>
+</div>
+<div class="text-center">
+<p class="font-semibold text-slate-900 dark:text-slate-100" style="">Đọc Hiểu</p>
+<p class="text-xs text-slate-500 dark:text-slate-400" style="">Reading</p>
+</div>
+</button>
+<button class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card hover:shadow-soft transition-all active:scale-95 flex flex-col items-center gap-3 border border-slate-100 dark:border-slate-700" style="">
+<div class="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-primary dark:text-teal-400">
+<span class="material-symbols-outlined text-2xl" style="">mic</span>
+</div>
+<div class="text-center">
+<p class="font-semibold text-slate-900 dark:text-slate-100" style="">Luyện nói</p>
+<p class="text-xs text-slate-500 dark:text-slate-400" style="">Speaking</p>
+</div>
+</button>
+<button class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card hover:shadow-soft transition-all active:scale-95 flex flex-col items-center gap-3 border border-slate-100 dark:border-slate-700" style="">
+<div class="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-primary dark:text-teal-400">
+<span class="material-symbols-outlined text-2xl" style="">edit</span>
+</div>
+<div class="text-center">
+<p class="font-semibold text-slate-900 dark:text-slate-100" style="">Viết</p>
+<p class="text-xs text-slate-500 dark:text-slate-400" style="">Writing</p>
+</div>
+</button>
+</div>
+</section>
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100" style="">Luyện thi</h3>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div class="group relative flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50">
+<div class="h-10 w-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+<span class="material-symbols-outlined" style="">laptop_chromebook</span>
+</div>
+<span class="text-xs font-medium text-center leading-tight" style="">Thi thử Online</span>
+</div>
+<div class="group relative flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50">
+<div class="h-10 w-10 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center text-teal-600 dark:text-teal-400">
+<span class="material-symbols-outlined" style="">quiz</span>
+</div>
+<span class="text-xs font-medium text-center leading-tight" style="">Thi thử</span>
+</div>
+<div class="group relative flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 overflow-hidden">
+<div class="absolute top-0 right-0 bg-primary text-white text-[9px] px-1.5 py-0.5 rounded-bl-lg font-bold" style="">HOT</div>
+<div class="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600 dark:text-red-400">
+<span class="material-symbols-outlined" style="">verified</span>
+</div>
+<span class="text-xs font-medium text-center leading-tight" style="">Bao đỗ</span>
+</div>
+<div class="group relative flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 overflow-hidden">
+<div class="absolute top-0 right-0 bg-primary text-white text-[9px] px-1.5 py-0.5 rounded-bl-lg font-bold" style="">FREE</div>
+<div class="h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined" style="">import_contacts</span>
+</div>
+<span class="text-xs font-medium text-center leading-tight" style="">Lý thuyết</span>
+</div>
+<div class="group relative flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50">
+<div class="h-10 w-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-400">
+<span class="material-symbols-outlined" style="">upgrade</span>
+</div>
+<span class="text-xs font-medium text-center leading-tight" style="">Nâng cấp</span>
+</div>
+<div class="group relative flex flex-col items-center gap-2 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50">
+<div class="h-10 w-10 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined" style="">settings</span>
+</div>
+<span class="text-xs font-medium text-center leading-tight" style="">Cài đặt</span>
+</div>
+</div>
+</section>
+<div class="relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-soft">
+<div class="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800 opacity-90"></div>
+<div class="absolute -right-10 -bottom-10 w-40 h-40 bg-primary rounded-full blur-3xl opacity-20"></div>
+<div class="relative p-5 flex items-center justify-between">
+<div class="flex flex-col gap-2">
+<div class="bg-primary/20 self-start px-2 py-0.5 rounded text-primary text-[10px] font-bold uppercase tracking-wide border border-primary/20" style="">Mới nhất</div>
+<h3 class="font-bold text-lg leading-snug" style="">Chớp thời cơ <br>mở đề thi mới</h3>
+</div>
+<button class="bg-white text-slate-900 h-10 w-10 rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 active:scale-95 transition-all" style="">
+<span class="material-symbols-outlined" style="">arrow_forward</span>
+</button>
+</div>
+</div>
+<section class="bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 p-4">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100" style="">Lịch sử</h3>
+<div class="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+<button class="px-3 py-1 bg-white dark:bg-slate-600 text-xs font-semibold rounded-md shadow-sm text-slate-800 dark:text-white" style="">Luyện tập</button>
+<button class="px-3 py-1 text-xs font-medium rounded-md text-slate-500 dark:text-slate-300" style="">Thi</button>
+</div>
+</div>
+<div class="flex flex-col items-center justify-center py-6 gap-3 text-center">
+<div class="w-20 h-20 bg-slate-50 dark:bg-slate-700/50 rounded-full flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-500" style="">history_edu</span>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 max-w-[200px]" style="">Bạn chưa có lịch sử luyện tập nào. Hãy bắt đầu ngay!</p>
+<button class="mt-2 text-primary font-semibold text-sm hover:underline" style="">Bắt đầu nào</button>
+</div>
+</section>
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100" style="">Sổ tay</h3>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+<div class="min-w-[240px] bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-36">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-bold text-slate-800 dark:text-white" style="">Từ vựng</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1" style="">Đã lưu 12 từ</p>
+</div>
+<span class="material-symbols-outlined text-yellow-500" style="">star</span>
+</div>
+<button class="self-start text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors" style="">
+                        Ôn tập ngay
+                    </button>
+</div>
+<div class="min-w-[240px] bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-36">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-bold text-slate-800 dark:text-white" style="">Câu hỏi</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1" style="">Đã lưu 5 câu</p>
+</div>
+<span class="material-symbols-outlined text-blue-500" style="">bookmark</span>
+</div>
+<button class="self-start text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors" style="">
+                        Ôn tập ngay
+                    </button>
+</div>
+</div>
+</section>
+</div>
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 max-w-md mx-auto">
+<div class="flex justify-between items-end px-2 pb-5 pt-3">
+<a class="flex-1 flex flex-col items-center gap-1 group" href="#" style="">
+<div class="bg-primary/10 text-primary w-12 h-8 rounded-full flex items-center justify-center transition-all group-hover:bg-primary/20">
+<span class="material-symbols-outlined filled-icon" style="font-variation-settings: &quot;FILL&quot; 1;">local_library</span>
+</div>
+<span class="text-[10px] font-bold text-primary dark:text-slate-100" style="">Luyện tập</span>
+</a>
+<a class="flex-1 flex flex-col items-center gap-1 group" href="#" style="">
+<div class="text-slate-400 w-12 h-8 rounded-full flex items-center justify-center transition-all group-hover:text-primary">
+<span class="material-symbols-outlined" style="">schedule</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary" style="">Lịch sử</span>
+</a>
+<a class="flex-1 flex flex-col items-center gap-1 group" href="#" style="">
+<div class="text-slate-400 w-12 h-8 rounded-full flex items-center justify-center transition-all group-hover:text-primary">
+<span class="material-symbols-outlined" style="">workspace_premium</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary" style="">Chứng chỉ</span>
+</a>
+<a class="flex-1 flex flex-col items-center gap-1 group relative" href="#" style="">
+<div class="absolute -top-2 right-3 bg-red-500 text-white text-[9px] font-bold px-1 rounded-sm border border-white dark:border-background-dark" style="">-50%</div>
+<div class="text-slate-400 w-12 h-8 rounded-full flex items-center justify-center transition-all group-hover:text-primary">
+<span class="material-symbols-outlined" style="">diamond</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary" style="">Nâng cấp</span>
+</a>
+<a class="flex-1 flex flex-col items-center gap-1 group" href="#" style="">
+<div class="text-slate-400 w-12 h-8 rounded-full flex items-center justify-center transition-all group-hover:text-primary">
+<span class="material-symbols-outlined" style="">settings</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary" style="">Cài đặt</span>
+</a>
+</div>
+</nav>
+</div>
+
+</body></html>

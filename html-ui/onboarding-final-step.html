@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Login Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0d9488",
+                        "text-dark": "#333333",
+                        "text-grey": "#666666",
+                        "background-light": "#ffffff",
+                        "background-dark": "#1a202c",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Lexend', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .illustration-blob {
+            background-color: #f0fdfa;}
+        .dark .illustration-blob {
+            background-color: rgba(13, 148, 136, 0.1);
+        }
+    </style>
+<style>
+        body {
+            min-height: max(844px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col justify-between">
+<header class="flex items-center justify-between p-4 pt-8 opacity-0 pointer-events-none">
+<div class="h-12"></div>
+</header>
+<main class="flex-grow flex flex-col items-center justify-center px-6 -mt-10">
+<div class="w-full max-w-sm mb-8 flex justify-center relative">
+<div class="absolute inset-0 flex items-center justify-center z-0">
+<div class="w-64 h-64 rounded-full illustration-blob blur-2xl"></div>
+</div>
+<div class="relative z-10 w-full aspect-square flex items-center justify-center">
+<div class="w-64 h-64 bg-contain bg-center bg-no-repeat" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD74s4JI-2wizePQY4i-zJQ1McHxx3nZmypPuaX-Dbw6YWot6CKifhJfERqrS1WnO9OHg3BkeYQLwcynnQ0oko7H4fIbt8cAIIRed2tR5AzVABHlHysW1m8X1iK4BP_voYYzfY870nTEKrGEs5sMNNa8JnR-rdJUL8P3yS3J2ecHfSU0CcTbKQteGU1LysfiZjCeGM9Ts755Mazh9DZsgrN7zftdHIWEF5WQ-JlPFoFHksdi_ELIIWqW5U7Rgjm5nTnBHQzHiBWT6NI");'></div>
+<span class="material-symbols-outlined absolute top-10 right-10 text-teal-200 text-4xl animate-bounce" style="animation-duration: 3s;">eco</span>
+<span class="material-symbols-outlined absolute bottom-10 left-10 text-teal-200 text-3xl animate-pulse">lightbulb</span>
+<div class="absolute top-1/2 left-0 w-4 h-4 bg-teal-100 rounded-full"></div>
+<div class="absolute bottom-1/4 right-4 w-6 h-6 bg-teal-50 rounded-full"></div>
+</div>
+</div>
+<div class="w-full text-center mb-4 px-2">
+<h1 class="text-[#333333] dark:text-white tracking-tight text-[28px] md:text-[32px] font-bold leading-tight">
+                Đăng nhập để luyện thi hiệu quả hơn
+            </h1>
+</div>
+<div class="w-full text-center mb-8 px-4">
+<p class="text-gray-500 dark:text-gray-300 text-base md:text-lg font-normal leading-relaxed">
+                Tham gia thi thử với đề thi sát 95% đề thi thật
+            </p>
+</div>
+<div class="flex flex-row items-center justify-center gap-2 mb-8">
+<div class="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+<div class="h-2 w-6 rounded-full bg-[#0d9488]"></div> 
+<div class="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-700"></div>
+</div>
+</main>
+<footer class="w-full px-6 pb-8 flex flex-col items-center gap-4">
+<button class="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-bold py-4 px-6 rounded-xl text-lg shadow-lg shadow-teal-500/20 active:scale-[0.98] transition-all flex items-center justify-center">
+            Đăng ký / Đăng nhập
+        </button>
+<button class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 font-medium text-base py-2 transition-colors">
+            Bỏ qua
+        </button>
+<div class="h-4"></div>
+</footer>
+
+</body></html>
