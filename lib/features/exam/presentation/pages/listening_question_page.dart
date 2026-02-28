@@ -427,7 +427,7 @@ class _ListeningQuestionPageState
     );
   }
 
-  void _doSubmit(List<QuestionModel> questions) {
+  void _doSubmit(List<QuestionModel> questions) async {
     _audioPlayer.stop();
     _timer?.cancel();
 
@@ -472,6 +472,23 @@ class _ListeningQuestionPageState
     final listeningScore = toToeicScore(listeningCorrect, listeningTotal);
     final readingScore = toToeicScore(readingCorrect, readingTotal);
     final totalCorrect = listeningCorrect + readingCorrect;
+    final totalScore = listeningScore + readingScore;
+
+    // Save attempt + answers to Supabase
+    try {
+      final repo = ref.read(questionRepositoryProvider);
+      await repo.submitAttempt(
+        testId: widget.testId,
+        score: totalScore,
+        questions: questions,
+        userAnswers: _answers,
+      );
+    } catch (e) {
+      // Log but don't block navigation — still show results
+      debugPrint('Failed to save attempt: $e');
+    }
+
+    if (!mounted) return;
 
     context.push('/exam/score', extra: {
       'testId': widget.testId,
@@ -484,11 +501,214 @@ class _ListeningQuestionPageState
     });
   }
 
+  void _showExitDialog(List<QuestionModel> questions) {
+    _audioPlayer.pause();
+    final answered = _answers.length;
+    final total = questions.length;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'exit_confirm',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (ctx, anim, secondAnim, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim, child: child),
+        );
+      },
+      pageBuilder: (ctx, anim, secondAnim) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(ctx).size.width * 0.85,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top accent bar
+                  Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.orange500,
+                          AppColors.red500,
+                        ],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  // Icon
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.orange500.withValues(alpha: 0.15),
+                          AppColors.red500.withValues(alpha: 0.08),
+                        ],
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.logout_rounded,
+                        color: AppColors.orange500,
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Thoát bài thi?',
+                    style: GoogleFonts.lexend(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSlate900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Bạn đã trả lời $answered/$total câu.\nBạn muốn làm gì?',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        color: AppColors.textSlate500,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Continue button
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Tiếp tục làm bài',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Exit + Save row
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _timer?.cancel();
+                              _audioPlayer.stop();
+                              context.pop();
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.red500,
+                              side: BorderSide(
+                                  color: AppColors.red500.withValues(alpha: 0.3)),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              'Thoát',
+                              style: GoogleFonts.lexend(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _doSubmit(questions);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(
+                                  color: AppColors.primary),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.save_outlined, size: 16),
+                            label: Text(
+                              'Lưu & Nộp',
+                              style: GoogleFonts.lexend(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final questionsAsync = ref.watch(questionsByTestIdProvider(widget.testId));
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showExitDialog(questionsAsync.valueOrNull ?? []);
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: questionsAsync.when(
         loading: () => const Center(
@@ -656,6 +876,7 @@ class _ListeningQuestionPageState
           );
         },
       ),
+    ),
     );
   }
 
@@ -685,7 +906,7 @@ class _ListeningQuestionPageState
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => context.pop(),
+                      onTap: () => _showExitDialog(questions),
                       borderRadius: BorderRadius.circular(9999),
                       child: const Padding(
                         padding: EdgeInsets.all(8),
@@ -735,7 +956,22 @@ class _ListeningQuestionPageState
                   // Tool buttons inline
                   _buildMiniTool(Icons.flag_outlined, 'Báo lỗi'),
                   _buildMiniTool(Icons.favorite_border, 'Yêu thích'),
-                  _buildMiniTool(Icons.visibility_outlined, 'Đáp án'),
+                  // Overview grid icon
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _showOverviewSheet(questions),
+                      borderRadius: BorderRadius.circular(9999),
+                      child: Tooltip(
+                        message: 'Tổng quan',
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.grid_view_rounded,
+                              size: 20, color: AppColors.textSlate400),
+                        ),
+                      ),
+                    ),
+                  ),
                   _buildMiniTool(Icons.pause_circle_outline, 'Dừng'),
                   const SizedBox(width: 4),
                   // Nộp bài button
@@ -785,6 +1021,248 @@ class _ListeningQuestionPageState
           ),
         ),
       ),
+    );
+  }
+
+  void _showOverviewSheet(List<QuestionModel> questions) {
+    final answered = _answers.length;
+    final unanswered = questions.length - answered;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.92,
+          builder: (_, scrollCtrl) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 4),
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderSlate200,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Tổng quan bài thi',
+                          style: GoogleFonts.lexend(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSlate900,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close,
+                              color: AppColors.textSlate400),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Stats
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        _buildOverviewStat(
+                          AppColors.primary,
+                          '$answered',
+                          'Đã làm',
+                        ),
+                        const SizedBox(width: 12),
+                        _buildOverviewStat(
+                          AppColors.orange500,
+                          '$unanswered',
+                          'Chưa làm',
+                        ),
+                        const SizedBox(width: 12),
+                        _buildOverviewStat(
+                          AppColors.textSlate500,
+                          '${questions.length}',
+                          'Tổng',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppColors.borderSlate100),
+                  // Grid
+                  Expanded(
+                    child: GridView.builder(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 6,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: questions.length,
+                      itemBuilder: (_, i) {
+                        final isAnswered = _answers.containsKey(i);
+                        final isCurrent = i == _currentIndex;
+
+                        Color bg;
+                        Color fg;
+                        BoxBorder? border;
+
+                        if (isCurrent) {
+                          bg = AppColors.primary;
+                          fg = Colors.white;
+                          border = Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                              width: 3);
+                        } else if (isAnswered) {
+                          bg = AppColors.primary.withValues(alpha: 0.12);
+                          fg = AppColors.primary;
+                        } else {
+                          bg = AppColors.slate100;
+                          fg = AppColors.textSlate400;
+                        }
+
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            _goToQuestion(i, questions);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            decoration: BoxDecoration(
+                              color: bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: border,
+                              boxShadow: isCurrent
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.25),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${i + 1}',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: isCurrent
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: fg,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Bottom legend
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildLegendDot(AppColors.primary, 'Đang làm'),
+                          const SizedBox(width: 20),
+                          _buildLegendDot(
+                              AppColors.primary.withValues(alpha: 0.12),
+                              'Đã làm'),
+                          const SizedBox(width: 20),
+                          _buildLegendDot(AppColors.slate100, 'Chưa làm'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOverviewStat(Color color, String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.lexend(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegendDot(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.lexend(
+            fontSize: 11,
+            color: AppColors.textSlate500,
+          ),
+        ),
+      ],
     );
   }
 
