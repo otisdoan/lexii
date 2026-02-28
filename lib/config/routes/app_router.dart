@@ -11,6 +11,10 @@ import 'package:lexii/features/exam/presentation/pages/mock_test_page.dart';
 import 'package:lexii/features/exam/presentation/pages/test_start_page.dart';
 import 'package:lexii/features/exam/presentation/pages/part_intro_page.dart';
 import 'package:lexii/features/exam/presentation/pages/listening_question_page.dart';
+import 'package:lexii/features/exam/presentation/pages/score_certificate_page.dart';
+import 'package:lexii/features/exam/presentation/pages/result_page.dart';
+import 'package:lexii/features/exam/presentation/pages/answer_review_page.dart';
+import 'package:lexii/features/exam/presentation/pages/answer_detail_page.dart';
 
 class AppRouter {
   static late final GoRouter router;
@@ -155,6 +159,80 @@ class AppRouter {
               child: ListeningQuestionPage(
                 testId: extra['testId'] as String? ?? '',
                 testTitle: extra['testTitle'] as String? ?? 'Test',
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        // Score certificate
+        GoRoute(
+          path: '/exam/score',
+          name: 'examScore',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: ScoreCertificatePage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+                listeningScore: (extra['listeningScore'] as num?)?.toInt() ?? 5,
+                readingScore: (extra['readingScore'] as num?)?.toInt() ?? 5,
+                totalCorrect: (extra['totalCorrect'] as num?)?.toInt() ?? 0,
+                totalQuestions: (extra['totalQuestions'] as num?)?.toInt() ?? 200,
+                userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        // Result breakdown
+        GoRoute(
+          path: '/exam/result',
+          name: 'examResult',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: ResultPage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+                userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        // Answer review
+        GoRoute(
+          path: '/exam/answer-review',
+          name: 'answerReview',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: AnswerReviewPage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+                userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
+                section: extra['section'] as String? ?? 'listening',
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        // Answer detail
+        GoRoute(
+          path: '/exam/answer-detail',
+          name: 'answerDetail',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: AnswerDetailPage(
+                testId: extra['testId'] as String? ?? '',
+                testTitle: extra['testTitle'] as String? ?? 'Test',
+                questionIndex: extra['questionIndex'] as int? ?? 0,
+                userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
               ),
               transitionsBuilder: _slideRightTransition,
             );

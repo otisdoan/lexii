@@ -152,6 +152,338 @@ class _ListeningQuestionPageState
     }
   }
 
+  void _submitTest(List<QuestionModel> questions) {
+    // Pause audio while dialog is showing
+    _audioPlayer.pause();
+
+    final answered = _answers.length;
+    final total = questions.length;
+    final unanswered = total - answered;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'submit_confirm',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (ctx, anim, secondAnim, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(
+            parent: anim,
+            curve: Curves.easeOutBack,
+          ),
+          child: FadeTransition(opacity: anim, child: child),
+        );
+      },
+      pageBuilder: (ctx, anim, secondAnim) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(ctx).size.width * 0.85,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top gradient accent
+                  Container(
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, Color(0xFF2DD4BF)],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  // Warning icon
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.15),
+                          const Color(0xFF2DD4BF).withValues(alpha: 0.08),
+                        ],
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.assignment_turned_in_outlined,
+                        color: AppColors.primary,
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Title
+                  Text(
+                    'Xác nhận nộp bài?',
+                    style: GoogleFonts.lexend(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSlate900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Description
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Bạn có chắc chắn muốn nộp bài?\nSau khi nộp sẽ không thể sửa đáp án.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        color: AppColors.textSlate500,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Stats row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundLight,
+                        borderRadius: BorderRadius.circular(16),
+                        border:
+                            Border.all(color: AppColors.borderSlate100),
+                      ),
+                      child: Row(
+                        children: [
+                          // Answered
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '$answered',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Đã trả lời',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 11,
+                                    color: AppColors.textSlate400,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 36,
+                            color: AppColors.borderSlate200,
+                          ),
+                          // Unanswered
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '$unanswered',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: unanswered > 0
+                                        ? AppColors.orange500
+                                        : AppColors.green600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Chưa trả lời',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 11,
+                                    color: AppColors.textSlate400,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 36,
+                            color: AppColors.borderSlate200,
+                          ),
+                          // Total
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '$total',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textSlate800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Tổng câu',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 11,
+                                    color: AppColors.textSlate400,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Buttons
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    child: Row(
+                      children: [
+                        // Cancel
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textSlate600,
+                              side: const BorderSide(
+                                  color: AppColors.borderSlate200),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              'Hủy bỏ',
+                              style: GoogleFonts.lexend(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Confirm
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _doSubmit(questions);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Xác nhận nộp',
+                              style: GoogleFonts.lexend(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _doSubmit(List<QuestionModel> questions) {
+    _audioPlayer.stop();
+    _timer?.cancel();
+
+    // Group questions by partId to determine listening vs reading
+    final partOrder = <String>[];
+    for (final q in questions) {
+      if (!partOrder.contains(q.partId)) {
+        partOrder.add(q.partId);
+      }
+    }
+
+    final listeningPartIds = partOrder.take(4).toSet();
+    final readingPartIds = partOrder.skip(4).toSet();
+
+    int listeningCorrect = 0;
+    int listeningTotal = 0;
+    int readingCorrect = 0;
+    int readingTotal = 0;
+
+    for (int i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final selectedIdx = _answers[i];
+      final isCorrect = selectedIdx != null &&
+          selectedIdx < q.options.length &&
+          q.options[selectedIdx].isCorrect;
+
+      if (listeningPartIds.contains(q.partId)) {
+        listeningTotal++;
+        if (isCorrect) listeningCorrect++;
+      } else if (readingPartIds.contains(q.partId)) {
+        readingTotal++;
+        if (isCorrect) readingCorrect++;
+      }
+    }
+
+    int toToeicScore(int correct, int total) {
+      if (total == 0) return 5;
+      final raw = 5.0 + (correct.toDouble() / total.toDouble() * 490.0);
+      return raw.round().clamp(5, 495).toInt();
+    }
+
+    final listeningScore = toToeicScore(listeningCorrect, listeningTotal);
+    final readingScore = toToeicScore(readingCorrect, readingTotal);
+    final totalCorrect = listeningCorrect + readingCorrect;
+
+    context.push('/exam/score', extra: {
+      'testId': widget.testId,
+      'testTitle': widget.testTitle,
+      'listeningScore': listeningScore,
+      'readingScore': readingScore,
+      'totalCorrect': totalCorrect,
+      'totalQuestions': questions.length,
+      'userAnswers': Map<int, int>.from(_answers),
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final questionsAsync = ref.watch(questionsByTestIdProvider(widget.testId));
@@ -223,7 +555,7 @@ class _ListeningQuestionPageState
 
           return Column(
             children: [
-              _buildHeader(totalQ),
+              _buildHeader(totalQ, questions),
               // Question area — scrollable, fills remaining space
               Expanded(
                 child: Container(
@@ -329,7 +661,7 @@ class _ListeningQuestionPageState
 
   /// Compact header: Row 1 has back + timer + tools + nộp bài
   /// Row 2 has tool icons
-  Widget _buildHeader(int totalQ) {
+  Widget _buildHeader(int totalQ, List<QuestionModel> questions) {
     final timerStr =
         '${_hours.toString().padLeft(2, '0')}:${_minutes.toString().padLeft(2, '0')}:${_seconds.toString().padLeft(2, '0')}';
 
@@ -410,7 +742,7 @@ class _ListeningQuestionPageState
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () {},
+                      onTap: () => _submitTest(questions),
                       borderRadius: BorderRadius.circular(9999),
                       child: Container(
                         padding: const EdgeInsets.symmetric(

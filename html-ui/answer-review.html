@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Answer Review</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#6eafa4",
+                        "primary-dark": "#5a9188",
+                        "background-light": "#f6f7f7",
+                        "background-dark": "#161c1b",
+                        "success": "#22c55e",
+                        "error": "#ef4444",
+                        "warning": "#eab308",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased min-h-screen">
+<!-- Wrapper for mobile view -->
+<div class="mx-auto w-full max-w-md bg-white dark:bg-slate-900 min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
+<!-- Header -->
+<header class="bg-primary px-4 pt-8 pb-4 sticky top-0 z-20 shadow-sm">
+<div class="flex items-center justify-between text-white">
+<button class="p-2 -ml-2 rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
+<span class="material-symbols-outlined !text-2xl">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Test 50 (New)</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</div>
+</header>
+<!-- Tabs -->
+<div class="bg-white dark:bg-slate-800 shadow-sm z-10">
+<div class="flex border-b border-slate-100 dark:border-slate-700">
+<button class="flex-1 py-4 text-center relative group">
+<span class="text-primary font-bold text-sm">Nghe Hiểu</span>
+<div class="absolute bottom-0 left-0 w-full h-[3px] bg-primary rounded-t-lg"></div>
+</button>
+<button class="flex-1 py-4 text-center relative group">
+<span class="text-slate-500 dark:text-slate-400 font-medium text-sm group-hover:text-primary transition-colors">Đọc Hiểu</span>
+<div class="absolute bottom-0 left-0 w-full h-[3px] bg-transparent group-hover:bg-primary/30 rounded-t-lg transition-colors"></div>
+</button>
+</div>
+<!-- Filters -->
+<div class="px-4 py-3 flex gap-3 overflow-x-auto no-scrollbar items-center">
+<button class="flex items-center justify-center px-4 py-1.5 bg-primary text-white rounded-full text-sm font-medium shadow-sm transition-transform active:scale-95">
+                    Tất cả
+                </button>
+<button class="flex items-center justify-center px-4 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                    Chọn đúng
+                </button>
+<button class="flex items-center justify-center px-4 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                    Chọn sai
+                </button>
+</div>
+</div>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto pb-20 bg-background-light dark:bg-background-dark">
+<!-- Part 1 Section -->
+<div class="mt-4 bg-white dark:bg-slate-800 p-4 mb-4 shadow-sm mx-3 rounded-lg">
+<h3 class="text-primary font-bold text-base mb-4 flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    Part 1: Mô Tả Hình Ảnh
+                </h3>
+<div class="flex flex-col gap-3">
+<!-- Question Item: Wrong -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-red-100 dark:bg-red-900/30 text-error shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">close</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 1</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-error text-white flex items-center justify-center text-sm font-bold shadow-sm">A</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+<div class="size-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm ring-2 ring-primary/30">D</div>
+</div>
+</div>
+<!-- Question Item: Skipped/Warning -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-amber-100 dark:bg-amber-900/30 text-warning shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">warning</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 2</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">A</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">D</div>
+</div>
+</div>
+<!-- Question Item: Correct -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-green-100 dark:bg-green-900/30 text-success shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">check</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 3</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">A</div>
+<div class="size-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">D</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Part 2 Section -->
+<div class="bg-white dark:bg-slate-800 p-4 mb-4 shadow-sm mx-3 rounded-lg">
+<h3 class="text-primary font-bold text-base mb-4 flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    Part 2: Hỏi &amp; Đáp
+                </h3>
+<div class="flex flex-col gap-3">
+<!-- Question Item: Correct -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-green-100 dark:bg-green-900/30 text-success shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">check</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 4</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm">A</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+</div>
+</div>
+<!-- Question Item: Wrong -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-red-100 dark:bg-red-900/30 text-error shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">close</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 5</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">A</div>
+<div class="size-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm ring-2 ring-primary/30">B</div>
+<div class="size-8 rounded-full bg-error text-white flex items-center justify-center text-sm font-bold shadow-sm">C</div>
+</div>
+</div>
+<!-- Question Item: Skipped -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-amber-100 dark:bg-amber-900/30 text-warning shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">warning</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 6</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">A</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+</div>
+</div>
+<!-- Question Item: Correct -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-green-100 dark:bg-green-900/30 text-success shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">check</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 7</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm">A</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Part 3 Section -->
+<div class="bg-white dark:bg-slate-800 p-4 mb-4 shadow-sm mx-3 rounded-lg">
+<h3 class="text-primary font-bold text-base mb-4 flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                    Part 3: Đoạn Hội Thoại
+                </h3>
+<div class="flex flex-col gap-3">
+<!-- Question Item: Correct -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-8 rounded-full bg-green-100 dark:bg-green-900/30 text-success shrink-0">
+<span class="material-symbols-outlined !text-lg font-bold">check</span>
+</div>
+<span class="text-slate-700 dark:text-slate-200 font-medium">Câu 8</span>
+</div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">A</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">B</div>
+<div class="size-8 rounded-full bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 text-slate-400 dark:text-slate-300 flex items-center justify-center text-sm">C</div>
+<div class="size-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm">D</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Bar -->
+<div class="absolute bottom-0 w-full bg-primary p-4 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] text-center">
+<p class="text-white text-sm font-medium leading-relaxed">
+                Ấn vào từng câu để xem giải thích chi tiết
+            </p>
+</div>
+</div>
+</body></html>

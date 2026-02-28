@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Question with Subtitles</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0d968b",
+                        "primary-dark": "#0a7d73",
+                        "secondary": "#f59e0b", // Mustard/Orange for highlights
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#102220",
+                        "surface-dark": "#1a2e2c",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Lexend', sans-serif;
+        }
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light text-slate-900 antialiased overflow-hidden h-screen flex flex-col relative">
+<!-- Header / AppBar -->
+<header class="bg-primary text-white pt-12 pb-4 px-4 flex items-center justify-between shadow-md z-20 shrink-0">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Câu 1/200</h1>
+<button class="text-white/90 text-sm font-semibold hover:text-white px-3 py-1 rounded-full hover:bg-white/10 transition-colors">
+            Giải thích
+        </button>
+</header>
+<!-- Audio Player Bar -->
+<div class="bg-black/90 text-white px-4 py-3 flex items-center gap-4 shrink-0 z-10">
+<button class="text-white/70 hover:text-white transition-colors">
+<span class="material-symbols-outlined" style="font-size: 24px;">replay_10</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-primary hover:bg-gray-100 transition-colors">
+<span class="material-symbols-outlined fill-1" style="font-size: 20px;">play_arrow</span>
+</button>
+<span class="text-xs font-medium tabular-nums text-white/70 w-9 text-right">0:12</span>
+<div class="flex-1 h-8 flex items-center group cursor-pointer">
+<div class="relative w-full h-1 bg-white/20 rounded-full">
+<div class="absolute h-full bg-secondary rounded-full" style="width: 48%;"></div>
+<div class="absolute top-1/2 -translate-y-1/2 left-[48%] w-3 h-3 bg-white rounded-full shadow border border-secondary scale-0 group-hover:scale-100 transition-transform duration-200"></div>
+</div>
+</div>
+<span class="text-xs font-medium tabular-nums text-white/70 w-9">0:25</span>
+</div>
+<!-- Scrollable Main Content -->
+<main class="flex-1 overflow-y-auto pb-64 bg-background-light px-4 pt-4">
+<!-- Question Card -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+<div class="bg-secondary/10 px-4 py-3 border-b border-secondary/10">
+<h2 class="text-secondary font-bold text-sm uppercase tracking-wide">Select the answer</h2>
+</div>
+<div class="p-4">
+<div class="aspect-video w-full rounded-xl bg-slate-100 overflow-hidden relative mb-4">
+<img alt="Man reading a book in a library" class="w-full h-full object-cover grayscale opacity-90 hover:grayscale-0 hover:opacity-100 transition-all duration-500" data-alt="Man reading a book in a library setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwlTpgWRuHPrR7nGHV1Z7o1vffeKeYD5cE-P67UatkAeKIg4o_kBLc_JKgNeb5uV55hXMrRlkRDi6XcdH9StEEUyeciIC7zMr_ky8pb9VXFniFXvp1eE_PWDlSshGu3xzDtA12B1ZTHdz7DXfOSd6CN3RTsLoey_sGLGQu0slkD5QBFqEx08XjKuU4sb6AJ4b6SFT1yedVixQ7zH_X9hfjkMfqVJMYDw0o-jVNzVlGZmlRJ5HkHKYBUtOeddBFgOWJbuk-cblT4d9Z"/>
+</div>
+<p class="text-slate-500 text-sm mb-2 font-medium">Look at the picture and listen to the sentences.</p>
+</div>
+</div>
+<!-- Answer Options -->
+<div class="flex flex-col gap-3 pb-8">
+<!-- Option A (Selected) -->
+<label class="group relative flex items-center p-3 rounded-xl border-2 border-primary bg-primary/5 cursor-pointer transition-all active:scale-[0.99]">
+<input checked="" class="peer sr-only" name="toeic-q1" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold text-lg mr-4 shrink-0 shadow-sm transition-transform group-hover:scale-110">
+                    A
+                </div>
+<span class="text-slate-800 font-medium group-hover:text-primary transition-colors">He is looking at some books</span>
+<div class="absolute right-4 text-primary opacity-100">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+</label>
+<!-- Option B (Wrong) -->
+<label class="group relative flex items-center p-3 rounded-xl border border-red-200 bg-red-50/50 cursor-pointer transition-all active:scale-[0.99] hover:border-red-300">
+<input class="peer sr-only" name="toeic-q1" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-lg mr-4 shrink-0 transition-transform group-hover:scale-110">
+                    B
+                </div>
+<span class="text-slate-600 font-medium">He is reading a newspaper</span>
+<div class="absolute right-4 text-red-500 opacity-100">
+<span class="material-symbols-outlined">cancel</span>
+</div>
+</label>
+<!-- Option C (Default) -->
+<label class="group relative flex items-center p-3 rounded-xl border border-slate-200 bg-white cursor-pointer transition-all active:scale-[0.99] hover:border-primary/50 hover:shadow-md">
+<input class="peer sr-only" name="toeic-q1" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-lg mr-4 shrink-0 transition-transform group-hover:scale-110 group-hover:bg-primary/10 group-hover:text-primary">
+                    C
+                </div>
+<span class="text-slate-600 font-medium group-hover:text-slate-900">He is borrowing a book</span>
+</label>
+<!-- Option D (Default) -->
+<label class="group relative flex items-center p-3 rounded-xl border border-slate-200 bg-white cursor-pointer transition-all active:scale-[0.99] hover:border-primary/50 hover:shadow-md">
+<input class="peer sr-only" name="toeic-q1" type="radio"/>
+<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-lg mr-4 shrink-0 transition-transform group-hover:scale-110 group-hover:bg-primary/10 group-hover:text-primary">
+                    D
+                </div>
+<span class="text-slate-600 font-medium group-hover:text-slate-900">He is standing near a window</span>
+</label>
+</div>
+</main>
+<!-- Bottom Sheet (Subtitles) -->
+<div class="absolute bottom-0 left-0 right-0 bg-primary shadow-[0_-4px_20px_rgba(0,0,0,0.15)] rounded-t-3xl z-30 flex flex-col max-h-[40vh] transition-transform duration-300 transform translate-y-0">
+<!-- Drag Handle -->
+<div class="w-full flex items-center justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing">
+<div class="w-12 h-1.5 bg-white/30 rounded-full"></div>
+</div>
+<!-- Tabs & Close -->
+<div class="flex items-center justify-between px-2 border-b border-white/10">
+<div class="flex items-center gap-1">
+<button class="relative px-4 py-3 text-white font-bold text-sm tracking-wide">
+                    Phụ đề
+                    <div class="absolute bottom-0 left-4 right-4 h-1 bg-secondary rounded-t-full"></div>
+</button>
+<button class="px-4 py-3 text-white/60 hover:text-white font-medium text-sm tracking-wide transition-colors">
+                    Lời dịch
+                </button>
+<button class="px-4 py-3 text-white/60 hover:text-white font-medium text-sm tracking-wide transition-colors">
+                    Từ khóa
+                </button>
+</div>
+<button class="mr-2 p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">close</span>
+</button>
+</div>
+<!-- Subtitle Content -->
+<div class="p-6 overflow-y-auto">
+<div class="space-y-3 text-white/90 text-base leading-relaxed font-light">
+<p class="opacity-60 hover:opacity-100 transition-opacity cursor-pointer flex gap-2">
+<span class="font-bold text-secondary text-xs mt-1 shrink-0">(A)</span>
+<span>He is looking at some books.</span>
+</p>
+<p class="font-medium text-white cursor-pointer flex gap-2 bg-white/10 -mx-3 px-3 py-2 rounded-lg">
+<span class="font-bold text-secondary text-xs mt-1 shrink-0">(B)</span>
+<span>He is reading a <span class="text-secondary font-bold border-b border-secondary/50 pb-0.5">newspaper</span>.</span>
+</p>
+<p class="opacity-60 hover:opacity-100 transition-opacity cursor-pointer flex gap-2">
+<span class="font-bold text-secondary text-xs mt-1 shrink-0">(C)</span>
+<span>He is borrowing a book.</span>
+</p>
+<p class="opacity-60 hover:opacity-100 transition-opacity cursor-pointer flex gap-2">
+<span class="font-bold text-secondary text-xs mt-1 shrink-0">(D)</span>
+<span>He is standing near a window.</span>
+</p>
+</div>
+</div>
+</div>
+<!-- Background Decoration Gradient for subtle texture -->
+<div class="fixed top-0 left-0 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none -z-10"></div>
+</body></html>
