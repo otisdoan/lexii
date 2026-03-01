@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
+import 'package:lexii/features/exam/data/models/test_part_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 
 class ListeningQuestionPage extends ConsumerStatefulWidget {
@@ -45,6 +46,14 @@ class _ListeningQuestionPageState
 
   // Animation
   late AnimationController _pulseController;
+
+  // Part-transition state
+  int? _pendingPartIntroForPart;
+  int? _pendingPartIntroNextIndex;
+  bool _isShowingPartIntro = false;
+  List<QuestionModel>? _cachedQuestions;
+  List<TestPartModel> _cachedParts = [];
+  bool _audioInitialized = false; // prevent re-init on every rebuild
 
   @override
   void initState() {
@@ -160,6 +169,7 @@ class _ListeningQuestionPageState
     }
     // If same audio URL → keep playing without interruption
   }
+
 
   void _submitTest(List<QuestionModel> questions) {
     // Pause audio while dialog is showing
@@ -711,6 +721,9 @@ class _ListeningQuestionPageState
   @override
   Widget build(BuildContext context) {
     final questionsAsync = ref.watch(questionsByTestIdProvider(widget.testId));
+    // Cache parts so onTap closures can check for next-part existence
+    final partsValue = ref.watch(testPartsProvider(widget.testId)).valueOrNull;
+    if (partsValue != null) _cachedParts = partsValue;
 
     return PopScope(
       canPop: false,
@@ -770,14 +783,52 @@ class _ListeningQuestionPageState
             );
           }
 
-          // Auto-load audio for first question on initial
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_audioDuration == Duration.zero &&
-                !_isAudioLoading &&
-                questions[_currentIndex].audioUrl != null) {
-              _loadAudio(questions[_currentIndex].audioUrl!);
-            }
-          });
+          // Always cache the latest questions list
+          _cachedQuestions = questions;
+
+          // Auto-load audio for first question — only once after questions load
+          if (!_audioInitialized) {
+            _audioInitialized = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!_isAudioLoading &&
+                  questions[_currentIndex].audioUrl != null) {
+                _loadAudio(questions[_currentIndex].audioUrl!);
+              }
+            });
+          }
+
+          // ─── PART INTRO NAVIGATION ───
+          // Triggered when _pendingPartIntroForPart is set by onTap
+          if (_pendingPartIntroForPart != null && !_isShowingPartIntro) {
+            final partNum = _pendingPartIntroForPart!;
+            final nextIdx = _pendingPartIntroNextIndex!;
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted || _isShowingPartIntro) return;
+              setState(() {
+                _isShowingPartIntro = true;
+                _pendingPartIntroForPart = null;
+                _pendingPartIntroNextIndex = null;
+              });
+              await context.push('/exam/part-intro', extra: {
+                'testId': widget.testId,
+                'testTitle': widget.testTitle,
+                'partNumber': partNum,
+                'isResume': true,
+              });
+              if (mounted) {
+                setState(() => _isShowingPartIntro = false);
+                final qs = _cachedQuestions;
+                if (qs != null && nextIdx < qs.length) {
+                  _goToQuestion(nextIdx, qs);
+                  final nextAudio = qs[nextIdx].audioUrl;
+                  if (nextAudio != null && !_audioPlayer.playing) {
+                    await _loadAudio(nextAudio);
+                    _audioPlayer.play();
+                  }
+                }
+              }
+            });
+          }
 
           final question = questions[_currentIndex];
           final totalQ = questions.length;
@@ -1383,15 +1434,45 @@ class _ListeningQuestionPageState
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          final alreadyAnswered = _answers.containsKey(_currentIndex);
-          setState(() => _answers[_currentIndex] = index);
-          // Auto-advance to next question if not already answered
-          // and there is a next question, audio continues playing
-          if (!alreadyAnswered && _currentIndex < questions.length - 1) {
+          final tappedIndex = _currentIndex;
+          final alreadyAnswered = _answers.containsKey(tappedIndex);
+          setState(() => _answers[tappedIndex] = index);
+
+          if (alreadyAnswered) return;
+
+          final nextIndex = tappedIndex + 1;
+          final currentPartId = questions[tappedIndex].partId;
+
+          // Is this the last question of the current part?
+          final isLastOfPart = nextIndex >= questions.length ||
+              questions[nextIndex].partId != currentPartId;
+
+          if (isLastOfPart) {
+            final currentPart =
+                _cachedParts.where((p) => p.id == currentPartId).firstOrNull;
+            final currentPartNumber = currentPart?.partNumber ?? 1;
+            final nextPartNumber = currentPartNumber + 1;
+            final nextPartExists =
+                _cachedParts.any((p) => p.partNumber == nextPartNumber);
+
+            if (nextPartExists) {
+              _audioPlayer.pause();
+              Future.delayed(const Duration(milliseconds: 600), () {
+                if (mounted) {
+                  setState(() {
+                    _pendingPartIntroForPart = nextPartNumber;
+                    _pendingPartIntroNextIndex = nextIndex;
+                  });
+                }
+              });
+              return;
+            }
+          }
+
+          // Same part or no next part → advance normally
+          if (nextIndex < questions.length) {
             Future.delayed(const Duration(milliseconds: 800), () {
-              if (mounted) {
-                _goToQuestion(_currentIndex + 1, questions);
-              }
+              if (mounted) _goToQuestion(nextIndex, questions);
             });
           }
         },

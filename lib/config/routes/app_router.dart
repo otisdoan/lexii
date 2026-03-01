@@ -144,6 +144,8 @@ class AppRouter {
               child: PartIntroPage(
                 testId: extra['testId'] as String? ?? '',
                 testTitle: extra['testTitle'] as String? ?? 'Test',
+                partNumber: extra['partNumber'] as int? ?? 1,
+                isResume: extra['isResume'] as bool? ?? false,
               ),
               transitionsBuilder: _slideRightTransition,
             );

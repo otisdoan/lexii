@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
+import 'package:lexii/features/exam/data/models/test_part_model.dart';
 
 class QuestionRepository {
   final SupabaseClient _client;
@@ -52,7 +53,28 @@ class QuestionRepository {
     }
   }
 
-  /// Fetch questions for a specific part
+  /// Fetch all parts for a test, including question count per part
+  Future<List<TestPartModel>> getTestParts(String testId) async {
+    try {
+      final response = await _client
+          .from('test_parts')
+          .select('id, test_id, part_number, instructions, questions(id)')
+          .eq('test_id', testId)
+          .order('part_number', ascending: true);
+
+      developer.log('Parts for test $testId: $response', name: 'QuestionRepo');
+
+      return (response as List)
+          .map((json) => TestPartModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e, stack) {
+      developer.log('Error fetching test parts: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Fetch question for a specific part
   Future<List<QuestionModel>> getQuestionsByPartId(String partId) async {
     try {
       final response = await _client

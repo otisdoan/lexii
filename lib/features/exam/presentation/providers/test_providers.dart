@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lexii/features/exam/data/models/test_model.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
+import 'package:lexii/features/exam/data/models/test_part_model.dart';
 import 'package:lexii/features/exam/data/repositories/test_repository.dart';
 import 'package:lexii/features/exam/data/repositories/question_repository.dart';
 
@@ -31,3 +32,10 @@ final questionsByTestIdProvider = FutureProvider.family<List<QuestionModel>, Str
   final repo = ref.watch(questionRepositoryProvider);
   return repo.getQuestionsByTestId(testId);
 });
+
+/// Provider for test parts by test ID — includes part_name, description, question count
+final testPartsProvider = FutureProvider.family<List<TestPartModel>, String>((ref, testId) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getTestParts(testId);
+});
+
