@@ -889,7 +889,7 @@ class _ListeningQuestionPageState
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                'Part 1 · Photographs',
+                                'Part ${_cachedParts.where((p) => questions.isNotEmpty && p.id == questions[_currentIndex].partId).firstOrNull?.partNumber ?? 1}',
                                 style: GoogleFonts.lexend(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -1567,6 +1567,25 @@ class _ListeningQuestionPageState
     );
   }
 
+  /// Returns "Part N · NAME" based on the current question's partId
+  String _currentPartLabel(List<QuestionModel> questions) {
+    if (questions.isEmpty || _currentIndex >= questions.length) return 'Part 1';
+    final partId = questions[_currentIndex].partId;
+    final part = _cachedParts.where((p) => p.id == partId).firstOrNull;
+    if (part == null) return 'Part 1';
+    const partNames = {
+      1: 'Photographs',
+      2: 'Question—Response',
+      3: 'Conversations',
+      4: 'Talks',
+      5: 'Incomplete Sentences',
+      6: 'Text Completion',
+      7: 'Reading Comprehension',
+    };
+    final name = partNames[part.partNumber] ?? 'Part ${part.partNumber}';
+    return 'Part ${part.partNumber} · $name';
+  }
+
   Widget _buildAudioBar(
       QuestionModel question, int totalQ, List<QuestionModel> questions) {
     final isPlaying = _audioPlayer.playing;
@@ -1649,7 +1668,7 @@ class _ListeningQuestionPageState
                         ),
                       ),
                       Text(
-                        'TOEIC Listening Part 1',
+                        'TOEIC Listening Part ${_cachedParts.where((p) => questions.isNotEmpty && p.id == questions[_currentIndex].partId).firstOrNull?.partNumber ?? 1}',
                         style: GoogleFonts.lexend(
                           fontSize: 10,
                           color: const Color(0xFF94A3B8),
