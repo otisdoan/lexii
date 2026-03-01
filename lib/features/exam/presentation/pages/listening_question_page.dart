@@ -141,15 +141,24 @@ class _ListeningQuestionPageState
 
   void _goToQuestion(int index, List<QuestionModel> questions) {
     if (index < 0 || index >= questions.length) return;
-    _audioPlayer.stop();
+    final currentAudioUrl = questions[_currentIndex].audioUrl;
+    final nextAudioUrl = questions[index].audioUrl;
+    final isSameAudio = currentAudioUrl != null &&
+        nextAudioUrl != null &&
+        currentAudioUrl == nextAudioUrl;
+
     setState(() {
       _currentIndex = index;
     });
-    // Load new audio
-    final q = questions[index];
-    if (q.audioUrl != null) {
-      _loadAudio(q.audioUrl!);
+
+    if (!isSameAudio) {
+      // Different audio → stop and load the new one
+      _audioPlayer.stop();
+      if (nextAudioUrl != null) {
+        _loadAudio(nextAudioUrl);
+      }
     }
+    // If same audio URL → keep playing without interruption
   }
 
   void _submitTest(List<QuestionModel> questions) {
@@ -862,6 +871,7 @@ class _ListeningQuestionPageState
                               idx,
                               letter,
                               opt.content,
+                              questions,
                             ),
                           );
                         }),
@@ -1366,12 +1376,25 @@ class _ListeningQuestionPageState
     );
   }
 
-  Widget _buildAnswerOption(int index, String letter, String text) {
+  Widget _buildAnswerOption(
+      int index, String letter, String text, List<QuestionModel> questions) {
     final isSelected = _answers[_currentIndex] == index;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => setState(() => _answers[_currentIndex] = index),
+        onTap: () {
+          final alreadyAnswered = _answers.containsKey(_currentIndex);
+          setState(() => _answers[_currentIndex] = index);
+          // Auto-advance to next question if not already answered
+          // and there is a next question, audio continues playing
+          if (!alreadyAnswered && _currentIndex < questions.length - 1) {
+            Future.delayed(const Duration(milliseconds: 800), () {
+              if (mounted) {
+                _goToQuestion(_currentIndex + 1, questions);
+              }
+            });
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
