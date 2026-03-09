@@ -100,7 +100,7 @@ class QuestionRepository {
     }
   }
 
-  /// Fetch question for a specific part
+  /// Fetch question for a specific part (with passage content if available)
   Future<List<QuestionModel>> getQuestionsByPartId(String partId) async {
     try {
       final response = await _client
@@ -115,11 +115,31 @@ class QuestionRepository {
             question_media (id, type, url)
           ''')
           .eq('part_id', partId)
-          .order('order_index', ascending: true);
+          .order('order_index', ascending: true) as List<dynamic>;
 
-      return (response as List)
-          .map((json) => QuestionModel.fromJson(json))
+      // Collect unique passage IDs to fetch content
+      final passageIds = response
+          .map((q) => q['passage_id'] as String?)
+          .whereType<String>()
+          .toSet()
           .toList();
+
+      final passageMap = <String, String>{};
+      if (passageIds.isNotEmpty) {
+        final passagesResponse = await _client
+            .from('passages')
+            .select('id, content')
+            .inFilter('id', passageIds) as List<dynamic>;
+        for (final p in passagesResponse) {
+          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
+        }
+      }
+
+      return response.map((json) {
+        final q = QuestionModel.fromJson(json);
+        final content = q.passageId != null ? passageMap[q.passageId] : null;
+        return content != null ? q.withPassageContent(content) : q;
+      }).toList();
     } catch (e, stack) {
       developer.log('Error fetching questions by part: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);

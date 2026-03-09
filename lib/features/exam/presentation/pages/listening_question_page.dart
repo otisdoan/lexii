@@ -14,11 +14,20 @@ import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 class ListeningQuestionPage extends ConsumerStatefulWidget {
   final String testId;
   final String testTitle;
+  /// When set, only questions for this part are loaded (practice mode).
+  final String? partId;
+  /// In practice mode, no countdown timer is shown.
+  final bool isPracticeMode;
+  /// When set, only the first N questions are shown (practice mode).
+  final int? questionLimit;
 
   const ListeningQuestionPage({
     super.key,
     required this.testId,
     required this.testTitle,
+    this.partId,
+    this.isPracticeMode = false,
+    this.questionLimit,
   });
 
   @override
@@ -60,7 +69,7 @@ class _ListeningQuestionPageState
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
-    _startTimer();
+    if (!widget.isPracticeMode) _startTimer();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -530,29 +539,95 @@ class _ListeningQuestionPageState
     _audioPlayer.stop();
     _timer?.cancel();
 
-    // Group questions by partId to determine listening vs reading
-    final partOrder = <String>[];
-    for (final q in questions) {
-      if (!partOrder.contains(q.partId)) {
-        partOrder.add(q.partId);
-      }
-    }
-
-    final listeningPartIds = partOrder.take(4).toSet();
-    final readingPartIds = partOrder.skip(4).toSet();
-
-    int listeningCorrect = 0;
-    int listeningTotal = 0;
-    int readingCorrect = 0;
-    int readingTotal = 0;
-
+    // Count correct answers
+    int totalCorrect = 0;
     for (int i = 0; i < questions.length; i++) {
       final q = questions[i];
       final selectedIdx = _answers[i];
-      final isCorrect = selectedIdx != null &&
+      if (selectedIdx != null &&
           selectedIdx < q.options.length &&
-          q.options[selectedIdx].isCorrect;
+          q.options[selectedIdx].isCorrect) {
+        totalCorrect++;
+      }
+    }
 
+    // Save attempt + answers to Supabase
+    try {
+      final repo = ref.read(questionRepositoryProvider);
+      int score;
+      if (widget.isPracticeMode) {
+        score = totalCorrect;
+      } else {
+        // Group questions by partId to determine listening vs reading
+        final partOrder = <String>[];
+        for (final q in questions) {
+          if (!partOrder.contains(q.partId)) partOrder.add(q.partId);
+        }
+        final listeningPartIds = partOrder.take(4).toSet();
+        final readingPartIds = partOrder.skip(4).toSet();
+        int listeningCorrect = 0, listeningTotal = 0;
+        int readingCorrect = 0, readingTotal = 0;
+        for (int i = 0; i < questions.length; i++) {
+          final q = questions[i];
+          final isCorrect = _answers[i] != null &&
+              _answers[i]! < q.options.length &&
+              q.options[_answers[i]!].isCorrect;
+          if (listeningPartIds.contains(q.partId)) {
+            listeningTotal++;
+            if (isCorrect) listeningCorrect++;
+          } else if (readingPartIds.contains(q.partId)) {
+            readingTotal++;
+            if (isCorrect) readingCorrect++;
+          }
+        }
+        int toToeicScore(int correct, int total) {
+          if (total == 0) return 5;
+          final raw = 5.0 + (correct.toDouble() / total.toDouble() * 490.0);
+          return raw.round().clamp(5, 495).toInt();
+        }
+        score = toToeicScore(listeningCorrect, listeningTotal) +
+            toToeicScore(readingCorrect, readingTotal);
+      }
+
+      await repo.submitAttempt(
+        testId: widget.testId,
+        score: score,
+        questions: questions,
+        userAnswers: _answers,
+      );
+    } catch (e) {
+      debugPrint('Failed to save attempt: $e');
+    }
+
+    if (!mounted) return;
+
+    if (widget.isPracticeMode) {
+      if (!mounted) return;
+      context.pushReplacement('/practice/part-result', extra: {
+        'testId': widget.testId,
+        'partId': widget.partId ?? '',
+        'partTitle': widget.testTitle,
+        'correct': totalCorrect,
+        'total': questions.length,
+        'userAnswers': Map<int, int>.from(_answers),
+      });
+      return;
+    }
+
+    // Full-test mode: navigate to score certificate
+    final partOrder = <String>[];
+    for (final q in questions) {
+      if (!partOrder.contains(q.partId)) partOrder.add(q.partId);
+    }
+    final listeningPartIds = partOrder.take(4).toSet();
+    final readingPartIds = partOrder.skip(4).toSet();
+    int listeningCorrect = 0, listeningTotal = 0;
+    int readingCorrect = 0, readingTotal = 0;
+    for (int i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final isCorrect = _answers[i] != null &&
+          _answers[i]! < q.options.length &&
+          q.options[_answers[i]!].isCorrect;
       if (listeningPartIds.contains(q.partId)) {
         listeningTotal++;
         if (isCorrect) listeningCorrect++;
@@ -561,39 +636,16 @@ class _ListeningQuestionPageState
         if (isCorrect) readingCorrect++;
       }
     }
-
     int toToeicScore(int correct, int total) {
       if (total == 0) return 5;
       final raw = 5.0 + (correct.toDouble() / total.toDouble() * 490.0);
       return raw.round().clamp(5, 495).toInt();
     }
-
-    final listeningScore = toToeicScore(listeningCorrect, listeningTotal);
-    final readingScore = toToeicScore(readingCorrect, readingTotal);
-    final totalCorrect = listeningCorrect + readingCorrect;
-    final totalScore = listeningScore + readingScore;
-
-    // Save attempt + answers to Supabase
-    try {
-      final repo = ref.read(questionRepositoryProvider);
-      await repo.submitAttempt(
-        testId: widget.testId,
-        score: totalScore,
-        questions: questions,
-        userAnswers: _answers,
-      );
-    } catch (e) {
-      // Log but don't block navigation — still show results
-      debugPrint('Failed to save attempt: $e');
-    }
-
-    if (!mounted) return;
-
     context.push('/exam/score', extra: {
       'testId': widget.testId,
       'testTitle': widget.testTitle,
-      'listeningScore': listeningScore,
-      'readingScore': readingScore,
+      'listeningScore': toToeicScore(listeningCorrect, listeningTotal),
+      'readingScore': toToeicScore(readingCorrect, readingTotal),
       'totalCorrect': totalCorrect,
       'totalQuestions': questions.length,
       'userAnswers': Map<int, int>.from(_answers),
@@ -800,7 +852,10 @@ class _ListeningQuestionPageState
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = ref.watch(questionsByTestIdProvider(widget.testId));
+    // Practice mode: load only the selected part; exam mode: load all parts
+    final questionsAsync = widget.partId != null
+        ? ref.watch(questionsByPartIdProvider(widget.partId!))
+        : ref.watch(questionsByTestIdProvider(widget.testId));
     // Cache parts so onTap closures can check for next-part existence
     final partsValue = ref.watch(testPartsProvider(widget.testId)).valueOrNull;
     if (partsValue != null) _cachedParts = partsValue;
@@ -846,7 +901,12 @@ class _ListeningQuestionPageState
             ),
           ),
         ),
-        data: (questions) {
+        data: (allQuestions) {
+          // Apply optional question limit (practice mode)
+          final questions = widget.questionLimit != null &&
+                  widget.questionLimit! < allQuestions.length
+              ? allQuestions.sublist(0, widget.questionLimit!)
+              : allQuestions;
           if (questions.isEmpty) {
             return Center(
               child: Column(
@@ -1658,7 +1718,7 @@ class _ListeningQuestionPageState
           final isLastOfPart = nextIndex >= questions.length ||
               questions[nextIndex].partId != currentPartId;
 
-          if (isLastOfPart) {
+          if (isLastOfPart && !widget.isPracticeMode) {
             final currentPart =
                 _cachedParts.where((p) => p.id == currentPartId).firstOrNull;
             final currentPartNumber = currentPart?.partNumber ?? 1;

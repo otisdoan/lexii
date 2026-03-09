@@ -1,0 +1,474 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lexii/core/theme/app_colors.dart';
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final displayName =
+        user?.userMetadata?['full_name'] as String? ??
+        user?.userMetadata?['name'] as String? ??
+        user?.email?.split('@').first ??
+        'Người dùng';
+    final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
+
+    return Scaffold(
+      backgroundColor: AppColors.slate100,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Header
+            Container(
+              color: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Cài đặt',
+                        style: GoogleFonts.lexend(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                ],
+              ),
+            ),
+            // Body
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Profile section
+                    _ProfileSection(
+                      displayName: displayName,
+                      avatarUrl: avatarUrl,
+                      email: user?.email,
+                      onLogout: () => _handleLogout(context),
+                    ),
+                    const SizedBox(height: 24),
+                    // Group 1: Account & Usage
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _SettingsGroup(
+                        items: [
+                          _SettingsItem(
+                            icon: Icons.edit_outlined,
+                            label: 'Chỉnh sửa hồ sơ',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.menu_book_outlined,
+                            label: 'Hướng dẫn sử dụng hiệu quả',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.language_outlined,
+                            label: 'Ngôn ngữ ứng dụng',
+                            trailing: Text(
+                              'Tiếng Việt',
+                              style: GoogleFonts.lexend(
+                                fontSize: 13,
+                                color: AppColors.textSlate500,
+                              ),
+                            ),
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.dark_mode_outlined,
+                            label: 'Giao diện tối',
+                            trailing: _ToggleSwitch(value: false, onChanged: (_) {}),
+                            showChevron: false,
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Group 2: App Customization
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _SettingsGroup(
+                        items: [
+                          _SettingsItem(
+                            icon: Icons.touch_app_outlined,
+                            label: 'Giao diện đáp án',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.monitor_outlined,
+                            label: 'Hiển thị',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.download_outlined,
+                            label: 'Quản lý tải xuống',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.alarm_outlined,
+                            label: 'Nhắc nhở học tập',
+                            onTap: () => _showComingSoon(context),
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Group 3: Community & Feedback
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _SettingsGroup(
+                        items: [
+                          _SettingsItem(
+                            icon: Icons.group_outlined,
+                            label: 'Tham gia cộng đồng Lexii TOEIC',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.share_outlined,
+                            label: 'Chia sẻ ứng dụng',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.feedback_outlined,
+                            label: 'Phản hồi & hỗ trợ',
+                            onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.star_border_outlined,
+                            label: 'Đánh giá 5 sao',
+                            onTap: () => _showComingSoon(context),
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Version
+                    Center(
+                      child: Text(
+                        'Phiên bản 1.0.0',
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          color: AppColors.textSlate400,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Tính năng đang phát triển',
+          style: GoogleFonts.lexend(color: Colors.white, fontSize: 13),
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Đăng xuất',
+          style: GoogleFonts.lexend(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn đăng xuất không?',
+          style: GoogleFonts.lexend(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Huỷ',
+              style: GoogleFonts.lexend(color: AppColors.textSlate500),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Đăng xuất',
+              style: GoogleFonts.lexend(
+                color: AppColors.orange500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await Supabase.instance.client.auth.signOut();
+      if (context.mounted) {
+        context.go('/auth/signup');
+      }
+    }
+  }
+}
+
+// ─── Profile Section ──────────────────────────────────────────────────────────
+
+class _ProfileSection extends StatelessWidget {
+  final String displayName;
+  final String? avatarUrl;
+  final String? email;
+  final VoidCallback onLogout;
+
+  const _ProfileSection({
+    required this.displayName,
+    required this.avatarUrl,
+    required this.email,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: AppColors.teal100,
+            backgroundImage:
+                avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+            child: avatarUrl == null
+                ? Text(
+                    displayName.isNotEmpty
+                        ? displayName[0].toUpperCase()
+                        : 'U',
+                    style: GoogleFonts.lexend(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 16),
+          // Name & email
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: GoogleFonts.lexend(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSlate800,
+                  ),
+                ),
+                if (email != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    email!,
+                    style: GoogleFonts.lexend(
+                      fontSize: 12,
+                      color: AppColors.textSlate500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Logout button
+          OutlinedButton(
+            onPressed: onLogout,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.orange500,
+              side: BorderSide(color: AppColors.orange500.withValues(alpha: 0.4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              textStyle: GoogleFonts.lexend(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Settings Group ───────────────────────────────────────────────────────────
+
+class _SettingsGroup extends StatelessWidget {
+  final List<_SettingsItem> items;
+
+  const _SettingsGroup({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: items,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Settings Item ────────────────────────────────────────────────────────────
+
+class _SettingsItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Widget? trailing;
+  final bool showChevron;
+  final bool isLast;
+  final VoidCallback? onTap;
+
+  const _SettingsItem({
+    required this.icon,
+    required this.label,
+    this.trailing,
+    this.showChevron = true,
+    this.isLast = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, size: 22, color: AppColors.primary),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSlate600,
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing!,
+                ],
+                if (showChevron && trailing == null)
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: AppColors.textSlate400,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (!isLast)
+          const Divider(
+            height: 1,
+            indent: 54,
+            color: AppColors.borderSlate100,
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Toggle Switch ────────────────────────────────────────────────────────────
+
+class _ToggleSwitch extends StatefulWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleSwitch({required this.value, required this.onChanged});
+
+  @override
+  State<_ToggleSwitch> createState() => _ToggleSwitchState();
+}
+
+class _ToggleSwitchState extends State<_ToggleSwitch> {
+  late bool _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Switch(
+      value: _value,
+      activeThumbColor: AppColors.primary,
+      activeTrackColor: AppColors.primary.withValues(alpha: 0.4),
+      onChanged: (v) {
+        setState(() => _value = v);
+        widget.onChanged(v);
+      },
+    );
+  }
+}

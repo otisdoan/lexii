@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Practice UI</title>
+<!-- Tailwind CSS v3 CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Roboto (Sans-serif) -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Icons -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6FAFA4',
+            background: '#F3F3F3',
+            darkGrey: '#333333',
+          },
+          borderRadius: {
+            'card': '20px',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="typography">
+    body {
+      font-family: 'Roboto', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .line-height-relaxed {
+      line-height: 1.6;
+    }
+  </style>
+<style data-purpose="layout">
+    /* Ensuring mobile view height and container behavior */
+    .app-container {
+      max-width: 430px; /* Max iPhone Pro Max width */
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .custom-shadow {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body class="bg-background">
+<div class="app-container bg-background">
+<!-- BEGIN: TopAppBar -->
+<header class="bg-primary text-white p-4 flex items-center justify-between sticky top-0 z-50 h-16 shadow-md" data-purpose="main-header">
+<div class="flex items-center gap-4">
+<button aria-label="Go back" class="p-1">
+<span class="material-icons">arrow_back</span>
+</button>
+<h1 class="text-xl font-medium">Câu 1</h1>
+<div class="flex gap-2 ml-2">
+<span class="material-icons text-xl opacity-90">report_problem</span>
+<span class="material-icons text-xl opacity-90">settings</span>
+<span class="material-icons text-xl opacity-90">favorite_border</span>
+</div>
+</div>
+<button class="text-sm font-semibold hover:bg-white/10 px-3 py-1 rounded-md transition-colors" data-purpose="explanation-button">
+        Giải thích
+      </button>
+</header>
+<!-- END: TopAppBar -->
+<!-- BEGIN: HeaderSectionProgress -->
+<section class="w-full h-1.5 bg-primary/30" data-purpose="progress-bar">
+<!-- Active progress indicator -->
+<div class="h-full bg-white/50 w-1/4"></div>
+</section>
+<!-- END: HeaderSectionProgress -->
+<!-- BEGIN: MainContent -->
+<main class="flex-grow p-5 overflow-y-auto" data-purpose="scrollable-content">
+<!-- Section Header -->
+<div class="flex justify-between items-center mb-6" data-purpose="content-title">
+<h2 class="text-2xl font-bold text-darkGrey">Đọc văn bản</h2>
+<button class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform">
+<span class="material-icons">volume_up</span>
+</button>
+</div>
+<!-- Text Card -->
+<div class="bg-white rounded-card p-6 custom-shadow mb-10" data-purpose="text-display-card">
+<article class="text-darkGrey text-[17px] line-height-relaxed text-left">
+          Good afternoon everybody, and thank you for flying with West Air. 
+          My name is Paula Griggs, and I'm the head flight attendant on today's aircraft. 
+          If you have any questions during your flight, please don't hesitate to ask me or one of the other attendants for assistance. 
+          The pilot is preparing the plan for takeoff, so this is an excellent opportunity to review the in-flight safety guidelines. 
+          Please take the time to study the material stored in front of your seat. 
+          Thank you.
+        </article>
+</div>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: BottomAction -->
+<footer class="p-6 flex justify-center items-center bg-transparent" data-purpose="footer-navigation">
+<button class="bg-primary text-white w-[70%] py-4 rounded-full font-bold text-lg shadow-lg hover:brightness-105 active:scale-95 transition-all uppercase tracking-wide">
+        Sẵn sàng
+      </button>
+</footer>
+<!-- END: BottomAction -->
+</div>
+</body></html>

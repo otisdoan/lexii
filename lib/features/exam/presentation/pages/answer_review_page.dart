@@ -11,6 +11,8 @@ class AnswerReviewPage extends ConsumerStatefulWidget {
   final String testTitle;
   final Map<int, int> userAnswers;
   final String section; // 'listening' or 'reading'
+  /// When set, loads only this part's questions (practice mode).
+  final String? partId;
 
   const AnswerReviewPage({
     super.key,
@@ -18,6 +20,7 @@ class AnswerReviewPage extends ConsumerStatefulWidget {
     required this.testTitle,
     this.userAnswers = const {},
     this.section = 'listening',
+    this.partId,
   });
 
   @override
@@ -47,7 +50,9 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = ref.watch(questionsByTestIdProvider(widget.testId));
+    final questionsAsync = widget.partId != null
+        ? ref.watch(questionsByPartIdProvider(widget.partId!))
+        : ref.watch(questionsByTestIdProvider(widget.testId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,

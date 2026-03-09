@@ -6,7 +6,13 @@ import 'package:lexii/features/onboarding/presentation/pages/onboarding_screen.d
 import 'package:lexii/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:lexii/features/home/presentation/pages/dashboard_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_detail_page.dart';
-import 'package:lexii/features/practice/domain/entities/skill_configs.dart';
+import 'package:lexii/features/practice/presentation/pages/practice_part_intro_page.dart';
+import 'package:lexii/features/practice/presentation/pages/practice_part_result_page.dart';
+import 'package:lexii/features/practice/presentation/pages/reading_question_page.dart';
+import 'package:lexii/features/practice/presentation/pages/writing_question_page.dart';
+import 'package:lexii/features/practice/presentation/pages/writing_result_page.dart';
+import 'package:lexii/features/practice/data/repositories/practice_repository.dart';
+import 'package:lexii/features/practice/data/models/writing_prompt_model.dart';
 import 'package:lexii/features/exam/presentation/pages/mock_test_page.dart';
 import 'package:lexii/features/exam/presentation/pages/test_start_page.dart';
 import 'package:lexii/features/exam/presentation/pages/part_intro_page.dart';
@@ -15,6 +21,9 @@ import 'package:lexii/features/exam/presentation/pages/score_certificate_page.da
 import 'package:lexii/features/exam/presentation/pages/result_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_review_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_detail_page.dart';
+import 'package:lexii/features/settings/presentation/pages/settings_page.dart';
+import 'package:lexii/features/settings/presentation/pages/upgrade_page.dart';
+import 'package:lexii/features/theory/presentation/pages/theory_page.dart';
 
 class AppRouter {
   static late final GoRouter router;
@@ -70,13 +79,101 @@ class AppRouter {
             },
           ),
         ),
+        // Practice part intro
+        GoRoute(
+          path: '/practice/part-intro',
+          name: 'practicePartIntro',
+          pageBuilder: (context, state) {
+            final partData = state.extra as PracticePartData;
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PracticePartIntroPage(partData: partData),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        // Practice part result
+        GoRoute(
+          path: '/practice/part-result',
+          name: 'practicePartResult',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PracticePartResultPage(
+                testId: extra['testId'] as String? ?? '',
+                partId: extra['partId'] as String? ?? '',
+                partTitle: extra['partTitle'] as String? ?? '',
+                correct: extra['correct'] as int? ?? 0,
+                total: extra['total'] as int? ?? 0,
+                userAnswers:
+                    (extra['userAnswers'] as Map<int, int>?) ?? {},
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        // Practice skill routes
+        GoRoute(
+          path: '/practice/reading-question',
+          name: 'readingQuestion',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: ReadingQuestionPage(
+                testId: extra['testId'] as String? ?? '',
+                partId: extra['partId'] as String? ?? '',
+                partTitle: extra['partTitle'] as String? ?? '',
+                questionLimit: extra['questionLimit'] as int?,
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/practice/writing-question',
+          name: 'writingQuestion',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: WritingQuestionPage(
+                partNumber: extra['partNumber'] as int? ?? 1,
+                partTitle: extra['partTitle'] as String? ?? '',
+                questionLimit: extra['questionLimit'] as int?,
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/practice/writing-result',
+          name: 'writingResult',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: WritingResultPage(
+                partTitle: extra['partTitle'] as String? ?? '',
+                prompts: (extra['prompts'] as List?)
+                        ?.cast<WritingPromptModel>() ??
+                    [],
+                userAnswers:
+                    (extra['userAnswers'] as Map?)?.cast<String, String>() ??
+                        {},
+              ),
+              transitionsBuilder: _slideRightTransition,
+            );
+          },
+        ),
         // Practice skill routes
         GoRoute(
           path: '/practice/listening',
           name: 'listening',
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
-            child: PracticeDetailPage(config: SkillConfigs.listening),
+            child: const PracticeDetailPage(skill: 'listening'),
             transitionsBuilder: _slideUpTransition,
           ),
         ),
@@ -85,7 +182,7 @@ class AppRouter {
           name: 'reading',
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
-            child: PracticeDetailPage(config: SkillConfigs.reading),
+            child: const PracticeDetailPage(skill: 'reading'),
             transitionsBuilder: _slideUpTransition,
           ),
         ),
@@ -94,7 +191,7 @@ class AppRouter {
           name: 'speaking',
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
-            child: PracticeDetailPage(config: SkillConfigs.speaking),
+            child: const PracticeDetailPage(skill: 'speaking'),
             transitionsBuilder: _slideUpTransition,
           ),
         ),
@@ -103,7 +200,36 @@ class AppRouter {
           name: 'writing',
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
-            child: PracticeDetailPage(config: SkillConfigs.writing),
+            child: const PracticeDetailPage(skill: 'writing'),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        // Theory
+        GoRoute(
+          path: '/theory',
+          name: 'theory',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const TheoryPage(),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        // Settings & Upgrade
+        GoRoute(
+          path: '/settings',
+          name: 'settings',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const SettingsPage(),
+            transitionsBuilder: _slideUpTransition,
+          ),
+        ),
+        GoRoute(
+          path: '/upgrade',
+          name: 'upgrade',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const UpgradePage(),
             transitionsBuilder: _slideUpTransition,
           ),
         ),
@@ -161,6 +287,9 @@ class AppRouter {
               child: ListeningQuestionPage(
                 testId: extra['testId'] as String? ?? '',
                 testTitle: extra['testTitle'] as String? ?? 'Test',
+                partId: extra['partId'] as String?,
+                isPracticeMode: extra['isPracticeMode'] as bool? ?? false,
+                questionLimit: extra['questionLimit'] as int?,
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -217,6 +346,7 @@ class AppRouter {
                 testTitle: extra['testTitle'] as String? ?? 'Test',
                 userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
                 section: extra['section'] as String? ?? 'listening',
+                partId: extra['partId'] as String?,
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -235,6 +365,7 @@ class AppRouter {
                 testTitle: extra['testTitle'] as String? ?? 'Test',
                 questionIndex: extra['questionIndex'] as int? ?? 0,
                 userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
+                partId: extra['partId'] as String?,
               ),
               transitionsBuilder: _slideRightTransition,
             );

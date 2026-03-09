@@ -39,3 +39,10 @@ final testPartsProvider = FutureProvider.family<List<TestPartModel>, String>((re
   return repo.getTestParts(testId);
 });
 
+/// Provider for questions filtered by a single part ID (used in practice mode)
+final questionsByPartIdProvider =
+    FutureProvider.family<List<QuestionModel>, String>((ref, partId) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getQuestionsByPartId(partId);
+});
+

@@ -13,6 +13,8 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
   final String testTitle;
   final int questionIndex;
   final Map<int, int> userAnswers;
+  /// When set, loads only this part's questions (practice mode).
+  final String? partId;
 
   const AnswerDetailPage({
     super.key,
@@ -20,6 +22,7 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
     required this.testTitle,
     required this.questionIndex,
     this.userAnswers = const {},
+    this.partId,
   });
 
   @override
@@ -65,7 +68,9 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = ref.watch(questionsByTestIdProvider(widget.testId));
+    final questionsAsync = widget.partId != null
+        ? ref.watch(questionsByPartIdProvider(widget.partId!))
+        : ref.watch(questionsByTestIdProvider(widget.testId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,

@@ -25,6 +25,18 @@ class _DashboardPageState extends State<DashboardPage> {
       context.push('/exam/mock-test');
       return;
     }
+    if (index == 2) {
+      context.push('/theory');
+      return;
+    }
+    if (index == 3) {
+      context.push('/upgrade');
+      return;
+    }
+    if (index == 4) {
+      context.push('/settings');
+      return;
+    }
     setState(() => _currentNavIndex = index);
   }
 

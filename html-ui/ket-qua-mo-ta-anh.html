@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kết quả TOEIC Practice</title>
+<!-- BEGIN: Scripts -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6FAFA4',
+            bgLight: '#F5F7F7',
+            accentOrange: '#FF9F43',
+          }
+        }
+      }
+    }
+  </script>
+<!-- END: Scripts -->
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="layout-styling">
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F5F7F7;
+    }
+    .safe-area-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    /* Wave background effect for the footer area */
+    .wave-bg {
+      background: linear-gradient(180deg, rgba(245,247,247,0) 0%, rgba(111, 175, 164, 0.1) 100%);
+      position: relative;
+    }
+    .wave-shape {
+      position: absolute;
+      top: -20px;
+      left: 0;
+      width: 100%;
+      height: 20px;
+      fill: rgba(111, 175, 164, 0.05);
+    }
+  </style>
+<style data-purpose="chart-styling">
+    .chart-container {
+      height: 150px;
+      position: relative;
+      border-left: 2px solid #E2E8F0;
+      border-bottom: 2px solid #E2E8F0;
+    }
+    .chart-dot {
+      width: 10px;
+      height: 10px;
+      background-color: #6FAFA4;
+      border-radius: 50%;
+      position: absolute;
+      bottom: 26%;
+      left: 30%;
+      transform: translate(-50%, 50%);
+      box-shadow: 0 0 0 4px rgba(111, 175, 164, 0.2);
+    }
+    .chart-line-dotted {
+      position: absolute;
+      bottom: 26%;
+      left: 0;
+      right: 0;
+      border-top: 1px dashed #6FAFA4;
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- BEGIN: MainHeader -->
+<header class="bg-primary sticky top-0 z-50 px-4 py-3 flex items-center shadow-md">
+<button aria-label="Quay lại" class="text-white p-2">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<h1 class="flex-grow text-center text-white text-xl font-semibold mr-8">Kết quả</h1>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-grow overflow-y-auto px-4 py-4 space-y-4">
+<!-- BEGIN: ResultSummaryCard -->
+<section class="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-4" data-purpose="summary-card">
+<div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+<!-- Mascot Placeholder -->
+<img alt="Mascot" class="rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLgBddHcQtG7BzgFFZ2UpsdMftU26tyZcFfD8YkOds_jrokij3DikrGT6yEUGv_xbcRrJcLoRbCa2bYJN169ZA5xXcrAegDuyWGE5tyamNvaobjzfgj6Acj3jzrr5F4czgsxPTJAeVuBItSreX5C3OSZCi3-U2tO0WaHnq-lofSXmTKi1omRYGHEbvTpRUpbZlK5DvP8JuuL7lW4nbgPSN8X-0YEuQdLin9bhIutnFTZ7RzJoZjHtl14DJTC9mpI8667WB5GlIW1Ru"/>
+</div>
+<div class="space-y-1">
+<p class="text-gray-600 text-sm font-medium">Bạn đã hoàn thành bài luyện tập</p>
+<p class="text-accentOrange font-bold">Mô tả hình ảnh (Nghe Hiểu)</p>
+<p class="text-gray-500 text-xs italic italic">Bạn cần cố gắng hơn nữa</p>
+</div>
+</section>
+<!-- END: ResultSummaryCard -->
+<!-- BEGIN: ScoreCard -->
+<section class="bg-white rounded-2xl p-5 shadow-sm space-y-4" data-purpose="score-info">
+<div class="flex justify-between items-center">
+<span class="text-gray-700 font-semibold text-lg">Kết quả: 6/23</span>
+<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm font-bold">26%</span>
+</div>
+<hr class="border-gray-100"/>
+<div class="flex justify-between items-center">
+<span class="text-gray-500 text-sm">Tỷ lệ trung bình của bạn:</span>
+<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm font-bold">26%</span>
+</div>
+</section>
+<!-- END: ScoreCard -->
+<!-- BEGIN: PerformanceChart -->
+<section class="bg-white rounded-2xl p-5 shadow-sm" data-purpose="performance-chart">
+<h3 class="text-gray-400 text-xs font-bold uppercase mb-4 tracking-wider">Thống kê hiệu suất</h3>
+<div class="chart-container mx-4 mb-2">
+<div class="chart-line-dotted"></div>
+<span class="absolute -left-10 bottom-[26%] text-xs text-primary font-bold">26%</span>
+<div class="chart-dot"></div>
+</div>
+<p class="text-center text-gray-400 text-[10px] mt-2">Tỉ lệ/STT</p>
+</section>
+<!-- END: PerformanceChart -->
+<!-- BEGIN: WrongQuestionsList -->
+<section class="bg-white rounded-2xl shadow-sm overflow-hidden" data-purpose="wrong-questions">
+<div class="p-4 border-b border-gray-50">
+<h2 class="font-bold text-gray-800">Danh sách câu hỏi sai:</h2>
+</div>
+<div class="divide-y divide-gray-50">
+<!-- Question Item 1 -->
+<div class="p-4 flex justify-between items-center hover:bg-gray-50">
+<p class="text-sm text-gray-700">Câu hỏi: <span class="font-bold">1.1</span> - Đáp án đúng: <span class="text-primary font-bold">C</span></p>
+<svg class="h-4 w-4 text-gray-300" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<!-- Question Item 2 -->
+<div class="p-4 flex justify-between items-center hover:bg-gray-50">
+<p class="text-sm text-gray-700">Câu hỏi: <span class="font-bold">1.2</span> - Đáp án đúng: <span class="text-primary font-bold">A</span></p>
+<svg class="h-4 w-4 text-gray-300" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Footer Button for List -->
+<button class="w-full py-4 bg-yellow-50 text-amber-600 text-sm font-bold flex items-center justify-center gap-2">
+        Xem tất cả câu trả lời
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</section>
+<!-- END: WrongQuestionsList -->
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: BottomArea -->
+<footer class="wave-bg pt-8 pb-6 px-6 safe-area-bottom" data-purpose="footer-actions">
+<!-- Wave SVG decoration -->
+<svg class="wave-shape" preserveaspectratio="none" viewbox="0 0 1440 320">
+<path d="M0,160L80,176C160,192,320,224,480,213.3C640,203,800,149,960,138.7C1120,128,1280,160,1360,176L1440,192L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+</svg>
+<div class="relative z-10 flex flex-col items-center gap-4">
+<button class="w-full bg-primary text-white py-4 rounded-full font-bold text-lg shadow-lg active:scale-95 transition-transform" data-purpose="continue-button">
+        Tiếp tục
+      </button>
+<a class="text-primary font-medium text-sm hover:underline" href="#">
+        Luyện tập các loại bài khác
+      </a>
+</div>
+</footer>
+<!-- END: BottomArea -->
+</body></html>

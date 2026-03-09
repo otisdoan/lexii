@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Practice App - Mô Tả Hình Ảnh</title>
+<!-- Tailwind CSS v3 CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts for Material Look -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'app-teal': '#6FAFA4',
+            'app-teal-light': '#E8F3F1',
+            'app-teal-dark': '#5A8F85',
+            'app-gray': '#757575',
+          },
+          fontFamily: {
+            sans: ['Roboto', 'sans-serif'],
+          },
+          borderRadius: {
+            'xl': '16px',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-decorations">
+    /* Custom wave and layered background at the bottom */
+    .wave-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 180px;
+      z-index: -1;
+      overflow: hidden;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F0F9F8 100%);
+    }
+    
+    .wave {
+      position: absolute;
+      bottom: 0;
+      width: 200%;
+      height: 100%;
+      background-repeat: repeat-x;
+      transform: translate3d(0, 0, 0);
+    }
+    
+    .wave-1 {
+      opacity: 0.3;
+      background: radial-gradient(circle at 50% 120%, #6FAFA4 0%, transparent 70%);
+      bottom: -50px;
+      border-radius: 40%;
+      animation: drift 15s infinite linear;
+    }
+
+    .wave-2 {
+      opacity: 0.1;
+      background: #A8D5CD;
+      bottom: -30px;
+      border-radius: 45%;
+      animation: drift 20s infinite linear;
+    }
+
+    @keyframes drift {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Custom Switch Styling */
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #6FAFA4;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #6FAFA4;
+    }
+  </style>
+</head>
+<body class="bg-white min-h-screen font-sans text-slate-800 flex flex-col">
+<!-- BEGIN: MainHeader -->
+<header class="bg-app-teal text-white p-4 flex items-center shadow-md sticky top-0 z-50">
+<button aria-label="Go back" class="p-1">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<h1 class="flex-1 text-center text-lg font-medium mr-7">Mô Tả Hình Ảnh</h1>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: ScrollableContent -->
+<main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 pb-32">
+<!-- BEGIN: TopSummarySection -->
+<section class="flex items-center space-x-4 bg-white p-2" data-purpose="stats-summary">
+<div class="w-20 h-20 bg-app-teal-light rounded-xl flex items-center justify-center flex-shrink-0">
+<!-- Placeholder for Illustration Icon -->
+<svg class="h-10 w-10 text-app-teal" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="flex-1 flex flex-col justify-between h-20 py-1">
+<div class="flex flex-col text-sm font-medium text-gray-600">
+<span>Số câu đã làm <span class="text-app-teal">0</span></span>
+<span>Trả lời đúng <span class="text-green-500">0</span></span>
+</div>
+<div class="w-full">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs text-gray-500">Hoàn thành</span>
+<span class="text-xs text-gray-500 font-bold">0%</span>
+</div>
+<div class="w-full bg-gray-100 rounded-full h-1.5">
+<div class="bg-app-teal h-1.5 rounded-full" style="width: 5%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: TopSummarySection -->
+<!-- BEGIN: InstructionCard -->
+<section class="bg-white rounded-xl p-5 shadow-sm border border-gray-100" data-purpose="instruction-card">
+<h2 class="text-lg font-bold underline mb-3">Câu hỏi</h2>
+<p class="text-gray-700 leading-relaxed text-sm">
+        For each question, you will see a picture and you will hear four short statements about the picture. They will be spoken only once. Choose the best answer A, B, C or D.
+      </p>
+</section>
+<!-- END: InstructionCard -->
+<!-- BEGIN: UpgradeMessage -->
+<section class="text-center px-4" data-purpose="upgrade-prompt">
+<p class="text-app-gray text-xs leading-5">
+        Nâng cấp để tải toàn bộ bài tập về máy, tải dữ liệu nhanh hơn, ổn định hơn
+      </p>
+</section>
+<!-- END: UpgradeMessage -->
+</main>
+<!-- END: ScrollableContent -->
+<!-- BEGIN: BottomControls -->
+<footer class="relative bg-transparent">
+<!-- Background Waves -->
+<div class="wave-container">
+<div class="wave wave-1"></div>
+<div class="wave wave-2"></div>
+</div>
+<div class="p-6 space-y-4">
+<!-- Control Panel Row -->
+<div class="flex items-center justify-between" data-purpose="settings-panel">
+<div class="flex items-center space-x-2">
+<span class="text-sm font-medium text-gray-700">Số câu hỏi:</span>
+<div class="relative">
+<select class="appearance-none bg-white border border-gray-200 rounded-full py-1 px-4 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-app-teal">
+<option>23</option>
+<option>50</option>
+<option>100</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+<svg class="fill-current h-4 w-4" viewbox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"></path></svg>
+</div>
+</div>
+</div>
+<!-- Toggle Switch -->
+<div class="flex items-center space-x-2">
+<span class="text-sm font-medium text-gray-700">Kiểm tra</span>
+<div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer outline-none" id="toggle" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer" for="toggle"></label>
+</div>
+</div>
+</div>
+<!-- Start Button -->
+<button class="w-full bg-app-teal hover:bg-app-teal-dark text-white font-bold py-4 rounded-full shadow-lg transition-transform active:scale-95" data-purpose="start-button">
+        Bắt đầu nào
+      </button>
+</div>
+</footer>
+<!-- END: BottomControls -->
+</body></html>

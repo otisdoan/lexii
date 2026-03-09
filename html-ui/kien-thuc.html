@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TOEIC Grammar Lesson Detail</title>
+<!-- BEGIN: External Scripts -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- END: External Scripts -->
+<!-- BEGIN: Custom Configurations -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6FAFA4', // Teal background from description
+            darkTeal: '#3D6B64',
+            lightGray: '#F5F7F7',
+          },
+          borderRadius: {
+            'modal': '24px',
+          }
+        }
+      }
+    }
+  </script>
+<!-- END: Custom Configurations -->
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="layout-styles">
+    body {
+      background-color: #1a1a1a; /* Dimmed background simulation */
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .bottom-sheet-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #E2E8F0;
+      border-radius: 10px;
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="h-screen overflow-hidden">
+<!-- BEGIN: Dimmed Background Content -->
+<main class="p-4 opacity-30 select-none pointer-events-none">
+<div class="space-y-4">
+<div class="h-16 bg-white rounded-lg w-full"></div>
+<div class="h-32 bg-white rounded-lg w-full"></div>
+<div class="h-32 bg-white rounded-lg w-full"></div>
+<div class="h-32 bg-white rounded-lg w-full"></div>
+</div>
+</main>
+<!-- END: Dimmed Background Content -->
+<!-- BEGIN: Bottom Modal Sheet -->
+<section class="bottom-sheet-container bg-white rounded-t-modal shadow-2xl animate-slide-up" data-purpose="grammar-lesson-modal">
+<!-- BEGIN: Modal Header -->
+<header class="bg-primary p-5 rounded-t-modal flex justify-between items-center sticky top-0 z-10">
+<h1 class="text-white font-semibold text-lg leading-tight pr-8">
+        Cấu trúc chung của một câu trong tiếng anh
+      </h1>
+<button aria-label="Close" class="bg-white/20 hover:bg-white/30 transition-colors rounded-full p-1.5 focus:outline-none">
+<svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</button>
+</header>
+<!-- END: Modal Header -->
+<!-- BEGIN: Modal Content Area -->
+<div class="overflow-y-auto custom-scrollbar flex-grow p-6 space-y-8 bg-white" data-purpose="scrollable-content">
+<!-- BEGIN: Content Title -->
+<section>
+<h2 class="text-darkTeal font-bold text-xl leading-snug">
+          Cấu trúc chung của một câu trong tiếng Anh
+        </h2>
+</section>
+<!-- END: Content Title -->
+<!-- BEGIN: Formula Section -->
+<section class="space-y-3" data-purpose="formula-display">
+<p class="text-gray-500 font-medium text-sm uppercase tracking-wider">Công thức:</p>
+<div class="bg-lightGray p-5 rounded-2xl border border-primary/10">
+<p class="font-mono text-primary font-bold text-center leading-relaxed tracking-normal">
+            SUBJECT + VERB + COMPLEMENT (OBJECT: DIRECT | INDIRECT) + MODIFIER
+          </p>
+</div>
+</section>
+<!-- END: Formula Section -->
+<!-- BEGIN: Examples Section -->
+<section class="space-y-3" data-purpose="examples-list">
+<h3 class="text-gray-800 font-bold text-lg">Ví dụ:</h3>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<span class="mt-1.5 h-2 w-2 rounded-full bg-primary flex-shrink-0"></span>
+<span class="text-gray-700 leading-relaxed italic">John and I ate a pizza last night.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="mt-1.5 h-2 w-2 rounded-full bg-primary flex-shrink-0"></span>
+<span class="text-gray-700 leading-relaxed italic">We studied "present perfect" last week.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="mt-1.5 h-2 w-2 rounded-full bg-primary flex-shrink-0"></span>
+<span class="text-gray-700 leading-relaxed italic">He runs very fast.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="mt-1.5 h-2 w-2 rounded-full bg-primary flex-shrink-0"></span>
+<span class="text-gray-700 leading-relaxed italic">I like walking.</span>
+</li>
+</ul>
+</section>
+<!-- END: Examples Section -->
+<!-- BEGIN: Related Grammar Card -->
+<aside class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 mb-8" data-purpose="related-grammar">
+<h3 class="text-gray-800 font-bold text-lg mb-4">Ngữ pháp liên quan</h3>
+<nav class="space-y-4">
+<!-- Item 1 -->
+<a class="flex items-center justify-between group" href="#">
+<div class="flex items-center gap-3">
+<span class="text-primary group-hover:translate-x-1 transition-transform">👉</span>
+<span class="text-primary font-medium">Subject (chủ ngữ)</span>
+</div>
+</a>
+<!-- Item 2 -->
+<a class="flex items-center justify-between group" href="#">
+<div class="flex items-center gap-3">
+<span class="text-primary group-hover:translate-x-1 transition-transform">👉</span>
+<span class="text-primary font-medium">Verb (động từ)</span>
+</div>
+</a>
+<!-- Item 3 -->
+<a class="flex items-center justify-between group" href="#">
+<div class="flex items-center gap-3">
+<span class="text-primary group-hover:translate-x-1 transition-transform">👉</span>
+<span class="text-primary font-medium">Complement (vị ngữ)</span>
+</div>
+</a>
+<!-- Item 4 -->
+<a class="flex items-center justify-between group" href="#">
+<div class="flex items-center gap-3">
+<span class="text-primary group-hover:translate-x-1 transition-transform">👉</span>
+<span class="text-primary font-medium">Modifier (trạng từ)</span>
+</div>
+</a>
+</nav>
+</aside>
+<!-- END: Related Grammar Card -->
+</div>
+<!-- END: Modal Content Area -->
+<!-- BEGIN: Bottom Safe Area Padding -->
+<div class="h-6 bg-white"></div>
+<!-- END: Bottom Safe Area Padding -->
+</section>
+<!-- END: Bottom Modal Sheet -->
+</body></html>
