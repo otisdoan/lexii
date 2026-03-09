@@ -8,22 +8,16 @@ class TestRepository {
   TestRepository({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
 
-  /// Fetch all fulltests (type = 'full_test')
+  /// Fetch all fulltests (type = 'full_test' or 'fulltest')
   Future<List<TestModel>> getFullTests() async {
     try {
       final response = await _client
           .from('tests')
           .select()
-          .eq('type', 'full_test')
+          .or('type.eq.full_test,type.eq.fulltest,type.ilike.full%')
           .order('created_at', ascending: false);
 
       developer.log('Fulltest response: $response', name: 'TestRepository');
-
-      if (response.isEmpty) {
-        // Fallback: try without type filter
-        developer.log('No full_test found, trying all tests...', name: 'TestRepository');
-        return getAllTests();
-      }
 
       return (response as List)
           .map((json) => TestModel.fromJson(json as Map<String, dynamic>))

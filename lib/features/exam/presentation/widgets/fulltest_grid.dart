@@ -6,6 +6,8 @@ import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/test_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 
+const int _kMaxGridItems = 6;
+
 class FulltestGrid extends ConsumerWidget {
   const FulltestGrid({super.key});
 
@@ -29,16 +31,21 @@ class FulltestGrid extends ConsumerWidget {
                   color: AppColors.textSlate900,
                 ),
               ),
-              GestureDetector(
-                onTap: () {},
-                child: Text(
-                  'Xem thêm',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
+              fullTestsAsync.maybeWhen(
+                data: (tests) => tests.length > _kMaxGridItems
+                    ? GestureDetector(
+                        onTap: () => _showAllTests(context, tests),
+                        child: Text(
+                          'Xem thêm (${tests.length})',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+                orElse: () => const SizedBox.shrink(),
               ),
             ],
           ),
@@ -56,6 +63,7 @@ class FulltestGrid extends ConsumerWidget {
               if (tests.isEmpty) {
                 return _buildEmptyState();
               }
+              final displayed = tests.take(_kMaxGridItems).toList();
               return GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
@@ -65,15 +73,93 @@ class FulltestGrid extends ConsumerWidget {
                 ),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: tests.length,
+                itemCount: displayed.length,
                 itemBuilder: (context, index) {
-                  final test = tests[index];
-                  return _TestCard(test: test);
+                  return _TestCard(test: displayed[index]);
                 },
               );
             },
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAllTests(BuildContext context, List<TestModel> tests) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderSlate200,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              // Title
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Row(
+                  children: [
+                    Text(
+                      'Tất cả Fulltest',
+                      style: GoogleFonts.lexend(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSlate900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${tests.length} đề',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.borderSlate100),
+              // List
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: tests.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (ctx, i) => _TestListTile(test: tests[i]),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -90,11 +176,7 @@ class FulltestGrid extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.quiz_outlined,
-            size: 48,
-            color: AppColors.textSlate400,
-          ),
+          Icon(Icons.quiz_outlined, size: 48, color: AppColors.textSlate400),
           const SizedBox(height: 12),
           Text(
             'Chưa có đề thi nào',
@@ -129,11 +211,7 @@ class FulltestGrid extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.error_outline,
-            size: 48,
-            color: Color(0xFFDC2626),
-          ),
+          const Icon(Icons.error_outline, size: 48, color: Color(0xFFDC2626)),
           const SizedBox(height: 12),
           Text(
             'Lỗi tải dữ liệu',
@@ -158,6 +236,87 @@ class FulltestGrid extends ConsumerWidget {
   }
 }
 
+// ── List tile used in "Xem thêm" bottom sheet ──────────────
+class _TestListTile extends StatelessWidget {
+  final TestModel test;
+  const _TestListTile({required this.test});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).pop(); // close sheet
+          context.push('/exam/test-start', extra: {
+            'testId': test.id,
+            'testTitle': test.title,
+            'duration': test.duration,
+            'totalQuestions': test.totalQuestions,
+          });
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderSlate100),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                ),
+                child: const Icon(Icons.description,
+                    size: 24, color: AppColors.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      test.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSlate900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${test.duration} phút • ${test.totalQuestions} câu',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        color: AppColors.textSlate500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (test.isPremium)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(Icons.lock, size: 18, color: AppColors.amber600),
+                ),
+              const Icon(Icons.arrow_forward_ios,
+                  size: 16, color: AppColors.textSlate400),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Grid card (unchanged layout) ────────────────────────────
 class _TestCard extends StatelessWidget {
   final TestModel test;
 
@@ -193,22 +352,16 @@ class _TestCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Stack(
               children: [
-                // Lock icon for premium
                 if (test.isPremium)
                   Positioned(
                     top: 0,
                     right: 0,
-                    child: Icon(
-                      Icons.lock,
-                      size: 20,
-                      color: AppColors.amber600,
-                    ),
+                    child: Icon(Icons.lock,
+                        size: 20, color: AppColors.amber600),
                   ),
-                // Content
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Icon
                     Container(
                       width: 56,
                       height: 56,
@@ -217,15 +370,11 @@ class _TestCard extends StatelessWidget {
                         color: AppColors.primary.withValues(alpha: 0.1),
                       ),
                       child: const Center(
-                        child: Icon(
-                          Icons.description,
-                          size: 28,
-                          color: AppColors.primary,
-                        ),
+                        child: Icon(Icons.description,
+                            size: 28, color: AppColors.primary),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Title
                     Text(
                       test.title,
                       textAlign: TextAlign.center,
@@ -238,7 +387,6 @@ class _TestCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Info
                     Text(
                       '${test.duration} min • ${test.totalQuestions} questions',
                       textAlign: TextAlign.center,
@@ -248,7 +396,6 @@ class _TestCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    // Start button
                     SizedBox(
                       width: double.infinity,
                       child: Container(
