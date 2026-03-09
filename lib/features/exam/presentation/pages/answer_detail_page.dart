@@ -92,7 +92,7 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
           return Column(
             children: [
-              _buildHeader(context, totalQ),
+              _buildHeader(context, q.orderIndex, totalQ),
               _buildAudioBar(q),
               Expanded(
                 child: Stack(
@@ -134,7 +134,7 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, int totalQ) {
+  Widget _buildHeader(BuildContext context, int orderIndex, int totalQ) {
     return Container(
       color: AppColors.primary,
       child: SafeArea(
@@ -156,7 +156,7 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
               ),
               Expanded(
                 child: Text(
-                  'Câu ${_currentIndex + 1}/$totalQ',
+                  'Câu $orderIndex/$totalQ',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.lexend(
                     fontSize: 17,

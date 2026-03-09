@@ -379,7 +379,7 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Câu ${qi.globalIndex + 1}',
+                  'Câu ${qi.question.orderIndex}',
                   style: GoogleFonts.lexend(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

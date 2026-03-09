@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -148,26 +149,105 @@ class _ListeningQuestionPageState
     return '${twoDigits(d.inMinutes.remainder(60))}:${twoDigits(d.inSeconds.remainder(60))}';
   }
 
+  // ─── GROUP HELPERS ───────────────────────────────────────────
+  /// Returns the indices of all questions in the same group as [index].
+  /// Group = consecutive questions sharing the exact same non-null audioUrl.
+  /// For questions without audio (Part 5-7) each question is its own group.
+  List<int> _groupFor(int index, List<QuestionModel> questions) {
+    final partId = questions[index].partId;
+
+    // Primary grouping key: passageId — MUST stay within the same part
+    final passageId = questions[index].passageId;
+    if (passageId != null) {
+      final indices = <int>[];
+      for (int i = 0; i < questions.length; i++) {
+        if (questions[i].passageId == passageId &&
+            questions[i].partId == partId) {
+          indices.add(i);
+        }
+      }
+      if (indices.length > 1) return indices;
+    }
+
+    // Secondary fallback for Part 6: group every 4 consecutive questions
+    // within the same part (Text Completion — 4 questions per passage)
+    final partNumber = _cachedParts
+        .where((p) => p.id == partId)
+        .firstOrNull
+        ?.partNumber;
+    if (partNumber == 6) {
+      // Find the first index of this part
+      final firstOfPart = questions.indexWhere((q) => q.partId == partId);
+      final posInPart = index - firstOfPart;
+      final groupStartInPart = (posInPart ~/ 4) * 4;
+      final groupStart = firstOfPart + groupStartInPart;
+      final groupEnd = (groupStart + 3).clamp(0, questions.length - 1);
+      // Make sure we don't cross into another part
+      final indices = <int>[];
+      for (int i = groupStart; i <= groupEnd; i++) {
+        if (questions[i].partId == partId) indices.add(i);
+      }
+      if (indices.length > 1) return indices;
+    }
+
+    // Fallback: consecutive questions sharing the same audioUrl, same part only
+    final audio = questions[index].audioUrl;
+    if (audio == null) return [index];
+
+    int start = index;
+    while (start > 0 &&
+        questions[start - 1].audioUrl == audio &&
+        questions[start - 1].partId == partId) {
+      start--;
+    }
+    int end = index;
+    while (end < questions.length - 1 &&
+        questions[end + 1].audioUrl == audio &&
+        questions[end + 1].partId == partId) {
+      end++;
+    }
+    if (end == start) return [index];
+    return List<int>.generate(end - start + 1, (i) => start + i);
+  }
+
+  /// Returns the index of the first question of the group containing [index].
+  int _groupStart(int index, List<QuestionModel> questions) {
+    return _groupFor(index, questions).first;
+  }
+
   void _goToQuestion(int index, List<QuestionModel> questions) {
     if (index < 0 || index >= questions.length) return;
-    final currentAudioUrl = questions[_currentIndex].audioUrl;
-    final nextAudioUrl = questions[index].audioUrl;
+
+    // Always navigate to the first question of the target group
+    final targetStart = _groupStart(index, questions);
+
+    // Resolve audio: first question in the group that has an audioUrl
+    String? audioUrlFor(int groupStart) {
+      final grp = _groupFor(groupStart, questions);
+      for (final i in grp) {
+        final url = questions[i].audioUrl;
+        if (url != null) return url;
+      }
+      return null;
+    }
+
+    final currentAudioUrl = audioUrlFor(_currentIndex);
+    final nextAudioUrl = audioUrlFor(targetStart);
     final isSameAudio = currentAudioUrl != null &&
         nextAudioUrl != null &&
         currentAudioUrl == nextAudioUrl;
 
     setState(() {
-      _currentIndex = index;
+      _currentIndex = targetStart;
     });
 
     if (!isSameAudio) {
-      // Different audio → stop and load the new one
       _audioPlayer.stop();
       if (nextAudioUrl != null) {
         _loadAudio(nextAudioUrl);
       }
     }
-    // If same audio URL → keep playing without interruption
+    // Same audio URL → keep playing without interruption
   }
 
 
@@ -790,9 +870,12 @@ class _ListeningQuestionPageState
           if (!_audioInitialized) {
             _audioInitialized = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!_isAudioLoading &&
-                  questions[_currentIndex].audioUrl != null) {
-                _loadAudio(questions[_currentIndex].audioUrl!);
+              if (!_isAudioLoading) {
+                final grpInit = _groupFor(_currentIndex, questions);
+                final initAudio = grpInit
+                    .map((i) => questions[i].audioUrl)
+                    .firstWhere((u) => u != null, orElse: () => null);
+                if (initAudio != null) _loadAudio(initAudio);
               }
             });
           }
@@ -820,7 +903,10 @@ class _ListeningQuestionPageState
                 final qs = _cachedQuestions;
                 if (qs != null && nextIdx < qs.length) {
                   _goToQuestion(nextIdx, qs);
-                  final nextAudio = qs[nextIdx].audioUrl;
+                  final nextGrp = _groupFor(nextIdx, qs);
+                  final nextAudio = nextGrp
+                      .map((i) => qs[i].audioUrl)
+                      .firstWhere((u) => u != null, orElse: () => null);
                   if (nextAudio != null && !_audioPlayer.playing) {
                     await _loadAudio(nextAudio);
                     _audioPlayer.play();
@@ -830,8 +916,19 @@ class _ListeningQuestionPageState
             });
           }
 
-          final question = questions[_currentIndex];
           final totalQ = questions.length;
+          final groupIndices = _groupFor(_currentIndex, questions);
+          final isGroup = groupIndices.length > 1;
+
+          // Debug: log group info for current question
+          dev.log(
+            'Q[$_currentIndex] orderIndex=${questions[_currentIndex].orderIndex} '
+            'partId=${questions[_currentIndex].partId} '
+            'passageId=${questions[_currentIndex].passageId} '
+            'passageContent=${questions[_currentIndex].passageContent?.substring(0, (questions[_currentIndex].passageContent?.length ?? 0).clamp(0, 40))} '
+            'groupIndices=$groupIndices',
+            name: 'GroupDebug',
+          );
 
           return Column(
             children: [
@@ -858,7 +955,7 @@ class _ListeningQuestionPageState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Question number badge
+                        // ── Top badge row ──────────────────────
                         Container(
                           margin: const EdgeInsets.only(bottom: 16),
                           child: Row(
@@ -879,7 +976,9 @@ class _ListeningQuestionPageState
                                   ],
                                 ),
                                 child: Text(
-                                  'Câu ${_currentIndex + 1}',
+                                  isGroup
+                                      ? 'Câu ${questions[groupIndices.first].orderIndex}–${questions[groupIndices.last].orderIndex}'
+                                      : 'Câu ${questions[_currentIndex].orderIndex}',
                                   style: GoogleFonts.lexend(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -898,7 +997,7 @@ class _ListeningQuestionPageState
                               ),
                               const Spacer(),
                               Text(
-                                '${_currentIndex + 1}/$totalQ',
+                                '${questions[_currentIndex].orderIndex}/$totalQ',
                                 style: GoogleFonts.lexend(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -908,22 +1007,19 @@ class _ListeningQuestionPageState
                             ],
                           ),
                         ),
-                        // Question card
-                        _buildQuestionCard(question),
+
+                        // ── Question card (shared audio/image) ─
+                        _buildQuestionCard(questions[_currentIndex], hideText: isGroup),
                         const SizedBox(height: 20),
-                        // Answer options
-                        ...question.options.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final opt = entry.value;
-                          final letter = String.fromCharCode(65 + idx);
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildAnswerOption(
-                              idx,
-                              letter,
-                              opt.content,
-                              questions,
-                            ),
+
+                        // ── For each question in the group ──────
+                        ...groupIndices.map((qIdx) {
+                          final q = questions[qIdx];
+                          return _buildSingleQuestionBlock(
+                            qIdx,
+                            q,
+                            questions,
+                            groupIndices.length,
                           );
                         }),
                       ],
@@ -931,8 +1027,8 @@ class _ListeningQuestionPageState
                   ),
                 ),
               ),
-              // Audio bar — fixed at bottom, NO overlap
-              _buildAudioBar(question, totalQ, questions),
+              // Audio bar — fixed at bottom
+              _buildAudioBar(questions[_currentIndex], totalQ, questions),
             ],
           );
         },
@@ -1229,7 +1325,7 @@ class _ListeningQuestionPageState
                             ),
                             child: Center(
                               child: Text(
-                                '${i + 1}',
+                                '${questions[i].orderIndex}',
                                 style: GoogleFonts.lexend(
                                   fontSize: 14,
                                   fontWeight: isCurrent
@@ -1327,7 +1423,11 @@ class _ListeningQuestionPageState
     );
   }
 
-  Widget _buildQuestionCard(QuestionModel question) {
+  Widget _buildQuestionCard(QuestionModel question, {bool hideText = false}) {
+    final hasPassage = question.passageContent != null &&
+        question.passageContent!.isNotEmpty;
+    final isReadingCard = hasPassage;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1347,39 +1447,65 @@ class _ListeningQuestionPageState
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF9C3).withValues(alpha: 0.5),
+              color: isReadingCard
+                  ? const Color(0xFFEFF6FF).withValues(alpha: 0.8)
+                  : const Color(0xFFFEF9C3).withValues(alpha: 0.5),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(24),
                 topRight: Radius.circular(24),
               ),
               border: Border(
                 bottom: BorderSide(
-                  color: const Color(0xFFEAB308).withValues(alpha: 0.2),
+                  color: isReadingCard
+                      ? const Color(0xFF3B82F6).withValues(alpha: 0.2)
+                      : const Color(0xFFEAB308).withValues(alpha: 0.2),
                 ),
               ),
             ),
             child: Row(
               children: [
                 Icon(
-                  question.imageUrl != null ? Icons.image : Icons.headphones,
-                  color: const Color(0xFFCA8A04),
+                  isReadingCard
+                      ? Icons.article_outlined
+                      : (question.imageUrl != null
+                          ? Icons.image
+                          : Icons.headphones),
+                  color: isReadingCard
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFFCA8A04),
                   size: 18,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'SELECT THE ANSWER',
+                  isReadingCard ? 'ĐOẠN VĂN' : 'SELECT THE ANSWER',
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFFCA8A04),
+                    color: isReadingCard
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFCA8A04),
                     letterSpacing: 0.5,
                   ),
                 ),
               ],
             ),
           ),
-          // Image or question text
-          if (question.imageUrl != null)
+          // Passage text (Part 6 / Part 7)
+          if (hasPassage)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                question.passageContent!,
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textSlate800,
+                  height: 1.7,
+                ),
+              ),
+            )
+          // Image
+          else if (question.imageUrl != null)
             Padding(
               padding: const EdgeInsets.all(20),
               child: ClipRRect(
@@ -1409,7 +1535,8 @@ class _ListeningQuestionPageState
                 ),
               ),
             )
-          else if (question.questionText != null)
+          // Single question text (no passage, no image)
+          else if (!hideText && question.questionText != null)
             Padding(
               padding: const EdgeInsets.all(20),
               child: Text(
@@ -1427,23 +1554,107 @@ class _ListeningQuestionPageState
     );
   }
 
+  /// Renders a single question sub-block inside a group.
+  /// [groupSize] == 1 → no sub-label shown (same as before).
+  Widget _buildSingleQuestionBlock(
+    int qIdx,
+    QuestionModel q,
+    List<QuestionModel> questions,
+    int groupSize,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sub-question label when inside a group (e.g. "Câu 32", "Câu 33")
+          if (groupSize > 1) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.indigo100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Câu ${q.orderIndex}',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.indigo600,
+                      ),
+                    ),
+                  ),
+                  if (q.questionText != null) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        q.questionText!,
+                        style: GoogleFonts.lexend(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSlate800,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ] else if (q.questionText != null) ...[
+            // Single question — show question text inside card already, skip
+          ],
+          // Answer options
+          ...q.options.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final opt = entry.value;
+            final letter = String.fromCharCode(65 + idx);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildAnswerOption(
+                qIdx,
+                idx,
+                letter,
+                opt.content,
+                questions,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAnswerOption(
-      int index, String letter, String text, List<QuestionModel> questions) {
-    final isSelected = _answers[_currentIndex] == index;
+      int questionIdx, int optionIdx, String letter, String text, List<QuestionModel> questions) {
+    final isSelected = _answers[questionIdx] == optionIdx;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          final tappedIndex = _currentIndex;
-          final alreadyAnswered = _answers.containsKey(tappedIndex);
-          setState(() => _answers[tappedIndex] = index);
+          final alreadyAnswered = _answers.containsKey(questionIdx);
+          setState(() => _answers[questionIdx] = optionIdx);
 
           if (alreadyAnswered) return;
 
-          final nextIndex = tappedIndex + 1;
-          final currentPartId = questions[tappedIndex].partId;
+          // Determine if the entire group is now fully answered
+          final group = _groupFor(questionIdx, questions);
+          final allGroupAnswered =
+              group.every((i) => _answers.containsKey(i));
 
-          // Is this the last question of the current part?
+          if (!allGroupAnswered) return; // Still unanswered questions in group
+
+          // All group answered → check if we need to move to next group
+          final lastOfGroup = group.last;
+          final nextIndex = lastOfGroup + 1;
+          final currentPartId = questions[group.first].partId;
+
+          // Is this group the last in the current part?
           final isLastOfPart = nextIndex >= questions.length ||
               questions[nextIndex].partId != currentPartId;
 
@@ -1469,7 +1680,7 @@ class _ListeningQuestionPageState
             }
           }
 
-          // Same part or no next part → advance normally
+          // Advance to next group
           if (nextIndex < questions.length) {
             Future.delayed(const Duration(milliseconds: 800), () {
               if (mounted) _goToQuestion(nextIndex, questions);
@@ -1567,29 +1778,13 @@ class _ListeningQuestionPageState
     );
   }
 
-  /// Returns "Part N · NAME" based on the current question's partId
-  String _currentPartLabel(List<QuestionModel> questions) {
-    if (questions.isEmpty || _currentIndex >= questions.length) return 'Part 1';
-    final partId = questions[_currentIndex].partId;
-    final part = _cachedParts.where((p) => p.id == partId).firstOrNull;
-    if (part == null) return 'Part 1';
-    const partNames = {
-      1: 'Photographs',
-      2: 'Question—Response',
-      3: 'Conversations',
-      4: 'Talks',
-      5: 'Incomplete Sentences',
-      6: 'Text Completion',
-      7: 'Reading Comprehension',
-    };
-    final name = partNames[part.partNumber] ?? 'Part ${part.partNumber}';
-    return 'Part ${part.partNumber} · $name';
-  }
 
   Widget _buildAudioBar(
       QuestionModel question, int totalQ, List<QuestionModel> questions) {
     final isPlaying = _audioPlayer.playing;
-    final hasAudio = question.audioUrl != null;
+    // Audio may be on any question in the group (usually the first)
+    final grp = _groupFor(_currentIndex, questions);
+    final hasAudio = grp.any((i) => questions[i].audioUrl != null);
     final progress = _audioDuration.inMilliseconds > 0
         ? _audioPosition.inMilliseconds / _audioDuration.inMilliseconds
         : 0.0;
@@ -1660,7 +1855,12 @@ class _ListeningQuestionPageState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Câu ${_currentIndex + 1} · Audio',
+                        () {
+                          final grp = _groupFor(_currentIndex, questions);
+                          return grp.length > 1
+                              ? 'Câu ${questions[grp.first].orderIndex}–${questions[grp.last].orderIndex} · Audio'
+                              : 'Câu ${questions[_currentIndex].orderIndex} · Audio';
+                        }(),
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,

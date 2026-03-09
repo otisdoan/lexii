@@ -3,6 +3,7 @@ class QuestionModel {
   final String id;
   final String partId;
   final String? passageId;
+  final String? passageContent; // fetched from passages table
   final String? questionText;
   final int orderIndex;
   final List<OptionModel> options;
@@ -12,11 +13,24 @@ class QuestionModel {
     required this.id,
     required this.partId,
     this.passageId,
+    this.passageContent,
     this.questionText,
     required this.orderIndex,
     this.options = const [],
     this.media = const [],
   });
+
+  /// Returns a copy with passageContent filled in.
+  QuestionModel withPassageContent(String content) => QuestionModel(
+        id: id,
+        partId: partId,
+        passageId: passageId,
+        passageContent: content,
+        questionText: questionText,
+        orderIndex: orderIndex,
+        options: options,
+        media: media,
+      );
 
   /// Image URL from media (type = 'image')
   String? get imageUrl {

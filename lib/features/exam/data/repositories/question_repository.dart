@@ -26,6 +26,7 @@ class QuestionRepository {
       final partIds =
           partsResponse.map((p) => p['id'] as String).toList();
 
+      // First fetch questions
       final questionsResponse = await _client
           .from('questions')
           .select('''
@@ -38,14 +39,39 @@ class QuestionRepository {
             question_media (id, type, url)
           ''')
           .inFilter('part_id', partIds)
-          .order('order_index', ascending: true);
+          .order('order_index', ascending: true) as List<dynamic>;
 
       developer.log('Questions fetched: ${questionsResponse.length}',
           name: 'QuestionRepo');
 
-      return questionsResponse
-          .map((json) => QuestionModel.fromJson(json))
+      // Collect unique passage IDs referenced by the questions
+      final passageIds = questionsResponse
+          .map((q) => q['passage_id'] as String?)
+          .whereType<String>()
+          .toSet()
           .toList();
+
+      // Fetch passages by their IDs (not part_id) so we never miss any
+      final passageMap = <String, String>{};
+      if (passageIds.isNotEmpty) {
+        final passagesResponse = await _client
+            .from('passages')
+            .select('id, content')
+            .inFilter('id', passageIds) as List<dynamic>;
+
+        developer.log('Passages fetched: ${passagesResponse.length}',
+            name: 'QuestionRepo');
+
+        for (final p in passagesResponse) {
+          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
+        }
+      }
+
+      return questionsResponse.map((json) {
+        final q = QuestionModel.fromJson(json);
+        final content = q.passageId != null ? passageMap[q.passageId] : null;
+        return content != null ? q.withPassageContent(content) : q;
+      }).toList();
     } catch (e, stack) {
       developer.log('Error fetching questions: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);
