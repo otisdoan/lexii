@@ -8,6 +8,7 @@ import 'package:lexii/features/practice/data/repositories/practice_repository.da
 import 'package:lexii/features/practice/domain/entities/practice_part.dart';
 import 'package:lexii/features/practice/domain/entities/skill_configs.dart';
 import 'package:lexii/features/practice/presentation/providers/practice_providers.dart';
+import 'package:lexii/features/practice/presentation/pages/sw_practice_page.dart';
 import 'package:lexii/features/practice/presentation/widgets/stats_card.dart';
 import 'package:lexii/features/practice/presentation/widgets/mistake_practice_card.dart';
 import 'package:lexii/features/practice/presentation/widgets/part_list_item.dart';
@@ -26,8 +27,11 @@ class PracticeDetailPage extends ConsumerWidget {
     if (skill == 'reading') {
       return const _ReadingPracticePage();
     }
+    if (skill == 'speaking') {
+      return const SpeakingPracticePage();
+    }
     if (skill == 'writing') {
-      return const _WritingPracticePage();
+      return const WritingPracticePage();
     }
     return _StaticSkillPage(config: _staticConfig);
   }
@@ -245,6 +249,7 @@ class _ReadingPracticePage extends ConsumerWidget {
 }
 
 // ── Writing — DB-backed ───────────────────────────────────────
+// ignore: unused_element
 class _WritingPracticePage extends ConsumerWidget {
   const _WritingPracticePage();
 

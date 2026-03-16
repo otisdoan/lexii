@@ -151,8 +151,10 @@ Deno.serve(async (req) => {
     const payosClientId = Deno.env.get('PAYOS_CLIENT_ID');
     const payosApiKey = Deno.env.get('PAYOS_API_KEY');
     const payosChecksumKey = Deno.env.get('PAYOS_CHECKSUM_KEY');
-    const returnUrlBase = Deno.env.get('PAYOS_RETURN_URL');
-    const cancelUrlBase = Deno.env.get('PAYOS_CANCEL_URL');
+    const returnUrlFromRequest = String(body?.returnUrl ?? '').trim();
+    const cancelUrlFromRequest = String(body?.cancelUrl ?? '').trim();
+    const returnUrlBase = resolveCallbackUrl(returnUrlFromRequest, Deno.env.get('PAYOS_RETURN_URL'));
+    const cancelUrlBase = resolveCallbackUrl(cancelUrlFromRequest, Deno.env.get('PAYOS_CANCEL_URL'));
 
     if (!payosClientId || !payosApiKey || !payosChecksumKey || !returnUrlBase || !cancelUrlBase) {
       return new Response(JSON.stringify({ error: 'Missing PayOS environment variables' }), {
@@ -307,4 +309,50 @@ function withQueryParams(url: string, query: Record<string, string>): string {
     parsed.searchParams.set(key, value);
   }
   return parsed.toString();
+}
+
+function resolveCallbackUrl(candidate: string, fallback?: string | null): string | null {
+  const fallbackValue = String(fallback ?? '').trim();
+
+  if (candidate) {
+    const parsed = safeParseUrl(candidate);
+    if (parsed && isAllowedCallbackProtocol(parsed)) {
+      return parsed.toString();
+    }
+  }
+
+  if (!fallbackValue) {
+    return null;
+  }
+
+  const parsedFallback = safeParseUrl(fallbackValue);
+  if (!parsedFallback || !isAllowedCallbackProtocol(parsedFallback)) {
+    return null;
+  }
+
+  return parsedFallback.toString();
+}
+
+function safeParseUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+function isAllowedCallbackProtocol(url: URL): boolean {
+  if (url.protocol === 'https:') {
+    return true;
+  }
+
+  if (url.protocol === 'lexii:') {
+    return true;
+  }
+
+  if (url.protocol === 'http:') {
+    return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  }
+
+  return false;
 }

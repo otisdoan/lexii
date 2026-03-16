@@ -10,7 +10,6 @@ import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/home/presentation/widgets/bottom_nav_bar.dart';
 import 'package:lexii/features/settings/data/services/payos_checkout_service.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -163,16 +162,6 @@ class _UpgradePageState extends ConsumerState<UpgradePage> {
       final checkoutUrl = checkoutSession.checkoutUrl;
       debugPrint('[PAYMENT] checkoutUrl=$checkoutUrl');
 
-      final qrContent = checkoutSession.qrContent;
-      if (qrContent != null && qrContent.trim().isNotEmpty && mounted) {
-        await _showQrBottomSheet(
-          qrContent: qrContent,
-          checkoutUrl: checkoutUrl,
-          orderCode: checkoutSession.orderCode,
-        );
-        return;
-      }
-
       final launched = await _openCheckoutUrl(checkoutUrl);
       debugPrint('[PAYMENT] launchResult=$launched, kIsWeb=$kIsWeb');
 
@@ -203,111 +192,7 @@ class _UpgradePageState extends ConsumerState<UpgradePage> {
       return launchUrl(uri, webOnlyWindowName: '_self');
     }
 
-    return launchUrl(uri, mode: LaunchMode.inAppWebView);
-  }
-
-  Future<void> _showQrBottomSheet({
-    required String qrContent,
-    required String checkoutUrl,
-    required String orderCode,
-  }) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.textSlate300,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              Text(
-                'Quét mã QR để thanh toán',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSlate900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Dùng app ngân hàng để quét mã bên dưới.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  color: AppColors.textSlate500,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderSlate200),
-                ),
-                child: QrImageView(
-                  data: qrContent,
-                  size: 220,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-              if (orderCode.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Mã đơn: $orderCode',
-                  style: GoogleFonts.lexend(
-                    fontSize: 12,
-                    color: AppColors.textSlate500,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final launched = await _openCheckoutUrl(checkoutUrl);
-                    if (!launched && mounted) {
-                      _showSnackBar(
-                        'Không mở được trang thanh toán. Vui lòng thử lại.',
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Mở trang thanh toán',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _showSnackBar(String message) {
@@ -609,7 +494,7 @@ class _PlanSelector extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: _plans.length,
             padding: const EdgeInsets.fromLTRB(2, 16, 2, 6),
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final plan = _plans[index];
               final isSelected = selectedPlan == plan.id;

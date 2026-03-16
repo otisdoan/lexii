@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 import 'package:lexii/features/practice/data/repositories/practice_repository.dart';
+import 'package:lexii/features/practice/data/repositories/speaking_writing_repository.dart';
 import 'package:lexii/features/practice/data/repositories/writing_repository.dart';
 
 /// Provider for PracticeRepository
@@ -11,6 +12,10 @@ final practiceRepositoryProvider = Provider<PracticeRepository>((ref) {
 /// Provider for WritingRepository
 final writingRepositoryProvider = Provider<WritingRepository>((ref) {
   return WritingRepository();
+});
+
+final speakingWritingRepositoryProvider = Provider<SpeakingWritingRepository>((ref) {
+  return SpeakingWritingRepository();
 });
 
 /// Listening practice parts (1..4) aggregated from all full tests.

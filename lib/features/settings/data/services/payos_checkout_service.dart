@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PayosCheckoutService {
   final SupabaseClient _client;
+  static const String _paymentResultDeepLink = 'lexii://payment-result';
 
   PayosCheckoutService({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
@@ -100,6 +101,8 @@ class PayosCheckoutService {
         'planName': plan.name,
         'amount': plan.amount,
         'description': plan.description,
+        'returnUrl': _paymentResultDeepLink,
+        'cancelUrl': _paymentResultDeepLink,
       },
     );
   }
