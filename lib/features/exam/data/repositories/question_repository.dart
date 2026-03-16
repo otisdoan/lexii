@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lexii/features/exam/data/models/attempt_history_model.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
 import 'package:lexii/features/exam/data/models/test_part_model.dart';
 
@@ -563,6 +564,44 @@ class QuestionRepository {
             name: 'QuestionRepo');
       }
 
+      // 4. Push in-app notification for test completion (non-blocking)
+      try {
+        final testRow = await _client
+            .from('tests')
+            .select('title')
+            .eq('id', testId)
+            .maybeSingle();
+
+        final testTitle = (testRow?['title'] as String?)?.trim();
+        final submittedAt = DateTime.now();
+        final dateLabel =
+            '${submittedAt.day.toString().padLeft(2, '0')}/${submittedAt.month.toString().padLeft(2, '0')}/${submittedAt.year} '
+            '${submittedAt.hour.toString().padLeft(2, '0')}:${submittedAt.minute.toString().padLeft(2, '0')}';
+
+        await _client.from('notifications').insert({
+          'recipient_user_id': userId,
+          'type': 'test_completed',
+          'title': 'Ban vua hoan thanh bai test',
+          'body': '${(testTitle != null && testTitle.isNotEmpty) ? testTitle : 'Bai thi TOEIC'} - diem $score luc $dateLabel.',
+          'metadata': {
+            'attemptId': attemptId,
+            'testId': testId,
+            'testTitle': (testTitle != null && testTitle.isNotEmpty)
+                ? testTitle
+                : 'Bai thi TOEIC',
+            'score': score,
+            'submittedAt': submittedAt.toIso8601String(),
+          },
+        });
+      } catch (notifyError, notifyStack) {
+        developer.log(
+          'Cannot create test completion notification: $notifyError',
+          name: 'QuestionRepo',
+          error: notifyError,
+          stackTrace: notifyStack,
+        );
+      }
+
       return attemptId;
     } catch (e, stack) {
       developer.log('Error submitting attempt: $e',
@@ -589,6 +628,174 @@ class QuestionRepository {
       developer.log('Error fetching user attempts: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);
       return [];
+    }
+  }
+
+  /// Get exam attempt history for the current user.
+  Future<List<AttemptHistoryItemModel>> getUserAttemptHistory({
+    int limit = 50,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      final attemptsResponse = await _client
+          .from('attempts')
+          .select('id, test_id, score, submitted_at')
+          .eq('user_id', userId)
+          .order('submitted_at', ascending: false)
+          .limit(limit) as List<dynamic>;
+
+      if (attemptsResponse.isEmpty) return [];
+
+      final attemptIds = attemptsResponse
+          .map((attempt) => attempt['id'] as String)
+          .toList();
+      final testIds = attemptsResponse
+          .map((attempt) => attempt['test_id'] as String)
+          .toSet()
+          .toList();
+
+      final testsResponse = await _client
+          .from('tests')
+          .select('id, title')
+          .inFilter('id', testIds) as List<dynamic>;
+
+      final answersResponse = await _client
+          .from('answers')
+          .select('attempt_id, option_id, is_correct')
+          .inFilter('attempt_id', attemptIds) as List<dynamic>;
+
+      final testTitleById = <String, String>{
+        for (final row in testsResponse)
+          row['id'] as String: (row['title'] as String?) ?? 'Bài thi TOEIC',
+      };
+
+      final answeredByAttemptId = <String, int>{};
+      final correctByAttemptId = <String, int>{};
+      for (final row in answersResponse) {
+        final attemptId = row['attempt_id'] as String;
+        final optionId = row['option_id'] as String?;
+        final isCorrect = (row['is_correct'] as bool?) ?? false;
+
+        if (optionId != null && optionId.isNotEmpty) {
+          answeredByAttemptId[attemptId] =
+              (answeredByAttemptId[attemptId] ?? 0) + 1;
+        }
+
+        if (isCorrect) {
+          correctByAttemptId[attemptId] =
+              (correctByAttemptId[attemptId] ?? 0) + 1;
+        }
+      }
+
+      return attemptsResponse.map((attempt) {
+        final attemptId = attempt['id'] as String;
+        return AttemptHistoryItemModel(
+          id: attemptId,
+          testId: attempt['test_id'] as String,
+          testTitle:
+              testTitleById[attempt['test_id'] as String] ?? 'Bài thi TOEIC',
+          score: (attempt['score'] as num?)?.toInt() ?? 0,
+          submittedAt: DateTime.tryParse(attempt['submitted_at'] as String? ?? '') ??
+              DateTime.now(),
+          answeredCount: answeredByAttemptId[attemptId] ?? 0,
+          correctCount: correctByAttemptId[attemptId] ?? 0,
+        );
+      }).toList();
+    } catch (e, stack) {
+      developer.log('Error fetching attempt history: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      return [];
+    }
+  }
+
+  /// Get full detail for one attempt, including all questions in that test.
+  Future<AttemptDetailModel?> getAttemptDetail(String attemptId) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final attemptResponse = await _client
+          .from('attempts')
+          .select('id, test_id, score, submitted_at')
+          .eq('id', attemptId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (attemptResponse == null) return null;
+
+      final testId = attemptResponse['test_id'] as String;
+
+      final testResponse = await _client
+          .from('tests')
+          .select('id, title')
+          .eq('id', testId)
+          .maybeSingle();
+
+      final partsResponse = await _client
+          .from('test_parts')
+          .select('id, part_number')
+          .eq('test_id', testId) as List<dynamic>;
+
+      final answersResponse = await _client
+          .from('answers')
+          .select('question_id, option_id, is_correct')
+          .eq('attempt_id', attemptId) as List<dynamic>;
+
+      final questions = await getQuestionsByTestId(testId);
+
+      final partNumberByPartId = <String, int>{
+        for (final row in partsResponse)
+          row['id'] as String: (row['part_number'] as num?)?.toInt() ?? 0,
+      };
+
+      final selectedOptionByQuestionId = <String, String?>{};
+      final isCorrectByQuestionId = <String, bool>{};
+      for (final row in answersResponse) {
+        final questionId = row['question_id'] as String;
+        selectedOptionByQuestionId[questionId] = row['option_id'] as String?;
+        isCorrectByQuestionId[questionId] = (row['is_correct'] as bool?) ?? false;
+      }
+
+      final orderedQuestions = [...questions]
+        ..sort((a, b) {
+          final partA = partNumberByPartId[a.partId] ?? 999;
+          final partB = partNumberByPartId[b.partId] ?? 999;
+          if (partA != partB) return partA.compareTo(partB);
+          return a.orderIndex.compareTo(b.orderIndex);
+        });
+
+      final details = orderedQuestions.map((question) {
+        final selectedOptionId = selectedOptionByQuestionId[question.id];
+        return AttemptQuestionDetailModel(
+          question: question,
+          partNumber: partNumberByPartId[question.partId] ?? 0,
+          selectedOptionId: selectedOptionId,
+          isCorrect: isCorrectByQuestionId[question.id] ?? false,
+        );
+      }).toList();
+
+      final answeredCount =
+          details.where((detail) => detail.isAnswered).length;
+      final correctCount = details.where((detail) => detail.isCorrect).length;
+
+      return AttemptDetailModel(
+        id: attemptResponse['id'] as String,
+        testId: testId,
+        testTitle: (testResponse?['title'] as String?) ?? 'Bài thi TOEIC',
+        score: (attemptResponse['score'] as num?)?.toInt() ?? 0,
+        submittedAt:
+            DateTime.tryParse(attemptResponse['submitted_at'] as String? ?? '') ??
+                DateTime.now(),
+        answeredCount: answeredCount,
+        correctCount: correctCount,
+        questionDetails: details,
+      );
+    } catch (e, stack) {
+      developer.log('Error fetching attempt detail: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      return null;
     }
   }
 }

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { formatVnd, notifyAdmins, notifyUser } from '../_shared/notifications.ts';
 
 const PLAN_ALLOWLIST = new Set([
   'premium_6_months',
@@ -249,6 +250,38 @@ Deno.serve(async (req) => {
         },
       );
     }
+
+    const buyerName = String(user.user_metadata?.full_name ?? user.email ?? user.id.slice(0, 8));
+    const amountLabel = formatVnd(amount);
+
+    await Promise.all([
+      notifyUser(adminClient, user.id, {
+        type: 'payment_pending',
+        title: 'Da tao ma QR thanh toan',
+        body: `Don ${planName} - ${amountLabel} (ma #${orderCode}) da san sang.`,
+        metadata: {
+          orderCode,
+          planId,
+          planName,
+          amount,
+          status: 'pending',
+        },
+      }),
+      notifyAdmins(adminClient, {
+        type: 'admin_payment_pending',
+        title: 'Giao dich moi cho thanh toan',
+        body: `${buyerName} vua tao ma QR cho goi ${planName} - ${amountLabel} (ma #${orderCode}).`,
+        metadata: {
+          userId: user.id,
+          userName: buyerName,
+          orderCode,
+          planId,
+          planName,
+          amount,
+          status: 'pending',
+        },
+      }),
+    ]);
 
     return new Response(
       JSON.stringify({

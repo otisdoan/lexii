@@ -5,6 +5,7 @@ import 'package:lexii/core/constants/app_constants.dart';
 import 'package:lexii/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:lexii/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:lexii/features/home/presentation/pages/dashboard_page.dart';
+import 'package:lexii/features/home/presentation/pages/notifications_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_detail_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_part_intro_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_part_result_page.dart';
@@ -23,6 +24,8 @@ import 'package:lexii/features/exam/presentation/pages/result_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_review_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_detail_page.dart';
 import 'package:lexii/features/settings/presentation/pages/settings_page.dart';
+import 'package:lexii/features/settings/presentation/pages/test_attempt_detail_page.dart';
+import 'package:lexii/features/settings/presentation/pages/test_history_page.dart';
 import 'package:lexii/features/settings/presentation/pages/upgrade_page.dart';
 import 'package:lexii/features/settings/presentation/pages/payment_result_page.dart';
 import 'package:lexii/features/theory/presentation/pages/theory_page.dart';
@@ -116,6 +119,15 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const DashboardPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/home/notifications',
+          name: 'homeNotifications',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const NotificationsPage(),
+            transitionsBuilder: _slideRightTransition,
           ),
         ),
         // Practice part intro
@@ -265,6 +277,26 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const SettingsPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/settings/test-history',
+          name: 'testHistory',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const TestHistoryPage(),
+            transitionsBuilder: _slideRightTransition,
+          ),
+        ),
+        GoRoute(
+          path: '/settings/test-history/:attemptId',
+          name: 'testAttemptDetail',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: TestAttemptDetailPage(
+              attemptId: state.pathParameters['attemptId'] ?? '',
+            ),
+            transitionsBuilder: _slideRightTransition,
           ),
         ),
         GoRoute(

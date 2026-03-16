@@ -5,11 +5,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/practice/data/models/speaking_question_model.dart';
 import 'package:lexii/features/practice/data/models/sw_writing_question_model.dart';
 import 'package:lexii/features/practice/data/repositories/speaking_writing_repository.dart';
-import 'package:lexii/features/practice/presentation/pages/sw_history_page.dart';
 import 'package:lexii/features/practice/presentation/providers/practice_providers.dart';
 import 'package:record/record.dart';
 
@@ -21,8 +21,6 @@ class SpeakingPracticePage extends ConsumerStatefulWidget {
 }
 
 class _SpeakingPracticePageState extends ConsumerState<SpeakingPracticePage> {
-  GradingMode _mode = GradingMode.normal;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,26 +38,13 @@ class _SpeakingPracticePageState extends ConsumerState<SpeakingPracticePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _GradingModeSelector(
-                    mode: _mode,
-                    onChanged: (value) => setState(() => _mode = value),
+                  _SkillOverviewCard(
+                    icon: Icons.auto_awesome,
+                    title: 'Chế độ AI tự động',
+                    subtitle:
+                        'Mỗi bài nói sẽ được chấm bằng AI theo tiêu chí TOEIC. Bạn chỉ cần chọn dạng bài và bắt đầu luyện.',
                   ),
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SwHistoryPage(isSpeaking: true),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.history, size: 18),
-                      label: const Text('Lịch sử luyện tập'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   Text(
                     'Các dạng luyện tập',
                     style: GoogleFonts.lexend(
@@ -82,7 +67,7 @@ class _SpeakingPracticePageState extends ConsumerState<SpeakingPracticePage> {
                               builder: (_) => SpeakingAttemptPage(
                                 taskType: item.type,
                                 taskTitle: item.title,
-                                mode: _mode,
+                                mode: GradingMode.ai,
                               ),
                             ),
                           );
@@ -108,8 +93,6 @@ class WritingPracticePage extends ConsumerStatefulWidget {
 }
 
 class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
-  GradingMode _mode = GradingMode.normal;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,26 +110,13 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _GradingModeSelector(
-                    mode: _mode,
-                    onChanged: (value) => setState(() => _mode = value),
+                  _SkillOverviewCard(
+                    icon: Icons.auto_awesome,
+                    title: 'Chế độ AI tự động',
+                    subtitle:
+                        'Bài viết sẽ được AI chấm chi tiết ngay sau khi nộp, bao gồm góp ý và hướng cải thiện theo chuẩn TOEIC.',
                   ),
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SwHistoryPage(isSpeaking: false),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.history, size: 18),
-                      label: const Text('Lịch sử luyện tập'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   Text(
                     'Các dạng luyện tập',
                     style: GoogleFonts.lexend(
@@ -169,7 +139,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
                               builder: (_) => WritingAttemptPage(
                                 taskType: item.type,
                                 taskTitle: item.title,
-                                mode: _mode,
+                                mode: GradingMode.ai,
                               ),
                             ),
                           );
@@ -206,8 +176,10 @@ class SpeakingAttemptPage extends ConsumerStatefulWidget {
 class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
   final TextEditingController _transcriptController = TextEditingController();
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   bool _loading = true;
   bool _recording = false;
+  bool _playingAudio = false;
   bool _submitting = false;
   int _prepCountdown = 3;
   int _recordSeconds = 0;
@@ -219,6 +191,10 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
   @override
   void initState() {
     super.initState();
+    _audioPlayer.playerStateStream.listen((state) {
+      if (!mounted) return;
+      setState(() => _playingAudio = state.playing);
+    });
     _loadQuestion();
   }
 
@@ -226,6 +202,7 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
   void dispose() {
     _prepTimer?.cancel();
     _recordTimer?.cancel();
+    _audioPlayer.dispose();
     _audioRecorder.dispose();
     _transcriptController.dispose();
     super.dispose();
@@ -257,14 +234,29 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
   }
 
   Future<void> _startRecording() async {
-    final hasPermission = await _audioRecorder.hasPermission();
-    if (!hasPermission || !mounted) return;
+    try {
+      final hasPermission = await _audioRecorder.hasPermission();
+      if (!hasPermission || !mounted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Khong co quyen micro. Vui long cap quyen de thu am.')),
+          );
+        }
+        return;
+      }
 
-    final filePath = '${Directory.systemTemp.path}/lexii-speaking-${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _audioRecorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
-      path: filePath,
-    );
+      final filePath = '${Directory.systemTemp.path}/lexii-speaking-${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: filePath,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Khong the bat dau thu am: $e')),
+      );
+      return;
+    }
 
     setState(() {
       _recording = true;
@@ -280,7 +272,13 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
   }
 
   Future<void> _stopRecording() async {
-    final path = await _audioRecorder.stop();
+    String? path;
+    try {
+      path = await _audioRecorder.stop();
+    } catch (_) {
+      path = null;
+    }
+
     _recordTimer?.cancel();
     _recordTimer = null;
     if (!mounted) return;
@@ -288,6 +286,25 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
       _recording = false;
       _recordedAudioPath = path;
     });
+
+    if (path == null || path.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Khong tao duoc file thu am. Thu lai mot lan nua.')),
+      );
+    }
+  }
+
+  Future<void> _playRecordedAudio() async {
+    final path = _recordedAudioPath;
+    if (path == null || path.isEmpty) return;
+
+    if (_audioPlayer.playing) {
+      await _audioPlayer.pause();
+      return;
+    }
+
+    await _audioPlayer.setFilePath(path);
+    await _audioPlayer.play();
   }
 
   Future<void> _submit() async {
@@ -301,40 +318,91 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
     setState(() => _submitting = true);
     final repo = ref.read(speakingWritingRepositoryProvider);
 
-    final answerId = await repo.submitSpeakingAnswer(
-      questionId: question.id,
-      transcript: _transcriptController.text.trim(),
-      durationSeconds: _recordSeconds,
-      audioUrl: _recordedAudioPath,
-    );
-
+    String finalTranscript = _transcriptController.text.trim();
     AiScoreBundle? ai;
-    if (widget.mode == GradingMode.ai) {
-      ai = repo.evaluateSpeakingByAi(
-        prompt: question.content,
-        transcript: _transcriptController.text.trim(),
-        durationSeconds: _recordSeconds,
-      );
+    String? answerId;
 
-      if (answerId != null) {
-        await repo.saveAiSpeakingEvaluation(answerId: answerId, ai: ai);
+    try {
+      if (finalTranscript.isEmpty && (_recordedAudioPath?.isNotEmpty ?? false)) {
+        try {
+          finalTranscript = await repo
+              .transcribeSpeakingAudioWithGemini(
+                audioPath: _recordedAudioPath!,
+              )
+              .timeout(const Duration(seconds: 20));
+        } catch (_) {
+          finalTranscript = '';
+        }
+
+        if (finalTranscript.isNotEmpty) {
+          _transcriptController.text = finalTranscript;
+        }
+      }
+
+      if (finalTranscript.isEmpty) {
+        finalTranscript = 'No transcript captured from audio.';
+      }
+
+      try {
+        answerId = await repo
+            .submitSpeakingAnswer(
+              questionId: question.id,
+              transcript: finalTranscript,
+              durationSeconds: _recordSeconds,
+              audioUrl: _recordedAudioPath,
+            )
+            .timeout(const Duration(seconds: 15));
+      } catch (_) {
+        answerId = null;
+      }
+
+      if (widget.mode == GradingMode.ai) {
+        try {
+          ai = await repo
+              .evaluateSpeakingByGemini(
+                taskType: widget.taskType,
+                prompt: question.content,
+                transcript: finalTranscript,
+                durationSeconds: _recordSeconds,
+              )
+              .timeout(const Duration(seconds: 25));
+        } catch (_) {
+          ai = repo.evaluateSpeakingByAi(
+            taskType: widget.taskType,
+            prompt: question.content,
+            transcript: finalTranscript,
+            durationSeconds: _recordSeconds,
+          );
+        }
+
+        if (answerId != null) {
+          try {
+            await repo
+                .saveAiSpeakingEvaluation(answerId: answerId, ai: ai)
+                .timeout(const Duration(seconds: 10));
+          } catch (_) {
+            // Keep UX smooth if evaluation persistence is delayed.
+          }
+        }
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => SwResultPage(
+            isSpeaking: true,
+            mode: widget.mode,
+            taskTitle: widget.taskTitle,
+            ai: ai,
+            userAnswer: finalTranscript,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
       }
     }
-
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => SwResultPage(
-          isSpeaking: true,
-          mode: widget.mode,
-          taskTitle: widget.taskTitle,
-          ai: ai,
-          userAnswer: _transcriptController.text.trim(),
-        ),
-      ),
-    );
   }
 
   @override
@@ -410,41 +478,47 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: _recording
                               ? () {
                                   _stopRecording();
                                 }
                               : null,
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.red600),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: _recording ? AppColors.red600 : null,
+                            foregroundColor: _recording ? Colors.white : null,
+                            side: BorderSide(
+                              color: _recording ? AppColors.red600 : AppColors.borderSlate200,
+                            ),
+                          ),
                           icon: const Icon(Icons.stop),
-                          label: const Text('Dừng ghi âm'),
+                          label: const Text('Dừng'),
                         ),
                       ),
                     ],
                   ),
                   if (_recordedAudioPath != null) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      'Da luu ban ghi am.',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: AppColors.green600,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Đã lưu bảng ghi âm. Bạn có thể nghe lại trước khi nộp.',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              color: AppColors.green600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _playRecordedAudio,
+                          icon: Icon(_playingAudio ? Icons.pause_circle : Icons.play_circle),
+                          label: Text(_playingAudio ? 'Tạm dừng' : 'Nghe lại'),
+                        ),
+                      ],
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _transcriptController,
-                    minLines: 4,
-                    maxLines: 7,
-                    style: GoogleFonts.lexend(fontSize: 14, color: AppColors.textSlate800),
-                    decoration: InputDecoration(
-                      hintText: 'Transcript (tùy chọn): dán hoặc nhập phần bạn đã nói để AI phân tích chi tiết hơn.',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
                   const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
@@ -527,37 +601,67 @@ class _WritingAttemptPageState extends ConsumerState<WritingAttemptPage> {
     setState(() => _submitting = true);
     final repo = ref.read(speakingWritingRepositoryProvider);
 
-    final answerId = await repo.submitWritingAnswer(
-      questionId: question.id,
-      answerText: _answerController.text.trim(),
-    );
-
+    final userAnswer = _answerController.text.trim();
+    String? answerId;
     AiScoreBundle? ai;
-    if (widget.mode == GradingMode.ai) {
-      ai = repo.evaluateWritingByAi(
-        prompt: question.content,
-        answer: _answerController.text.trim(),
-      );
 
-      if (answerId != null) {
-        await repo.saveAiWritingEvaluation(answerId: answerId, ai: ai);
+    try {
+      try {
+        answerId = await repo
+            .submitWritingAnswer(
+              questionId: question.id,
+              answerText: userAnswer,
+            )
+            .timeout(const Duration(seconds: 15));
+      } catch (_) {
+        answerId = null;
+      }
+
+      if (widget.mode == GradingMode.ai) {
+        try {
+          ai = await repo
+              .evaluateWritingByGemini(
+                taskType: widget.taskType,
+                prompt: question.content,
+                answer: userAnswer,
+              )
+              .timeout(const Duration(seconds: 25));
+        } catch (_) {
+          ai = repo.evaluateWritingByAi(
+            taskType: widget.taskType,
+            prompt: question.content,
+            answer: userAnswer,
+          );
+        }
+
+        if (answerId != null) {
+          try {
+            await repo
+                .saveAiWritingEvaluation(answerId: answerId, ai: ai)
+                .timeout(const Duration(seconds: 10));
+          } catch (_) {
+            // Ignore persistence delays and continue to result page.
+          }
+        }
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => SwResultPage(
+            isSpeaking: false,
+            mode: widget.mode,
+            taskTitle: widget.taskTitle,
+            ai: ai,
+            userAnswer: userAnswer,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
       }
     }
-
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => SwResultPage(
-          isSpeaking: false,
-          mode: widget.mode,
-          taskTitle: widget.taskTitle,
-          ai: ai,
-          userAnswer: _answerController.text.trim(),
-        ),
-      ),
-    );
   }
 
   @override
@@ -694,43 +798,86 @@ class SwResultPage extends StatelessWidget {
                   if (isAi && ai != null) ...[
                     _ScoreCard(title: 'Overall', score: ai!.overall),
                     const SizedBox(height: 10),
-                    if (isSpeaking) ...[
+                    if (ai!.taskScores.isNotEmpty) ...[
+                      ...ai!.taskScores.entries.map(
+                        (entry) => _ScoreRow(label: entry.key, value: entry.value),
+                      ),
+                    ] else if (isSpeaking) ...[
                       _ScoreRow(label: 'Pronunciation', value: ai!.pronunciation),
                       _ScoreRow(label: 'Fluency', value: ai!.fluency),
+                      _ScoreRow(label: 'Grammar', value: ai!.grammar),
+                      _ScoreRow(label: 'Vocabulary', value: ai!.vocabulary),
+                      _ScoreRow(label: 'Coherence', value: ai!.coherence),
                     ] else ...[
                       _ScoreRow(label: 'Coherence', value: ai!.coherence),
+                      _ScoreRow(label: 'Grammar', value: ai!.grammar),
+                      _ScoreRow(label: 'Vocabulary', value: ai!.vocabulary),
                     ],
-                    _ScoreRow(label: 'Grammar', value: ai!.grammar),
-                    _ScoreRow(label: 'Vocabulary', value: ai!.vocabulary),
                     const SizedBox(height: 12),
                     _Block(
                       title: 'Phân tích lỗi & góp ý',
                       content: ai!.feedback,
                     ),
+                    if (ai!.errors.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _Block(
+                        title: 'Lỗi cần sửa',
+                        content: ai!.errors.map((e) => '- $e').join('\n'),
+                      ),
+                    ],
+                    if (isSpeaking && ai!.missingDetails.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _Block(
+                        title: 'Ý còn thiếu',
+                        content: ai!.missingDetails.map((e) => '- $e').join('\n'),
+                      ),
+                    ],
+                    if (isSpeaking && ai!.wrongInformation.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _Block(
+                        title: 'Thông tin chưa chính xác',
+                        content: ai!.wrongInformation.map((e) => '- $e').join('\n'),
+                      ),
+                    ],
                     const SizedBox(height: 10),
-                    _Block(
-                      title: 'Phiên bản đề xuất',
-                      content: ai!.correctedVersion,
-                    ),
+                    if (ai!.aiSuggestedAnswer.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _Block(
+                        title: 'Đáp án mẫu AI',
+                        content: ai!.aiSuggestedAnswer,
+                      ),
+                    ],
+                    if (ai!.vocabularyHighlights.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _Block(
+                        title: 'Từ vựng quan trọng',
+                        content: ai!.vocabularyHighlights
+                            .map((e) => '- $e')
+                            .join('\n'),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                   ],
-                  _Block(
-                    title: isSpeaking ? 'Transcript đã lưu' : 'Bài viết đã lưu',
-                    content: userAnswer.trim().isEmpty
-                        ? 'Không có nội dung.'
-                        : userAnswer,
-                  ),
-                  const SizedBox(height: 18),
+                  if (!isSpeaking) ...[
+                    _Block(
+                      title: 'Bài viết đã lưu',
+                      content: userAnswer.trim().isEmpty
+                          ? 'Không có nội dung.'
+                          : userAnswer,
+                    ),
+                    const SizedBox(height: 18),
+                  ] else
+                    const SizedBox(height: 6),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                      onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: Text(
-                        'Về trang luyện tập',
+                        isSpeaking ? 'Về trang luyện nói' : 'Về trang luyện tập',
                         style: GoogleFonts.lexend(color: Colors.white, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -855,51 +1002,77 @@ class _AttemptHeader extends StatelessWidget {
   }
 }
 
-class _GradingModeSelector extends StatelessWidget {
-  final GradingMode mode;
-  final ValueChanged<GradingMode> onChanged;
+class _SkillOverviewCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
-  const _GradingModeSelector({
-    required this.mode,
-    required this.onChanged,
+  const _SkillOverviewCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderSlate200),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Chế độ chấm bài',
-            style: GoogleFonts.lexend(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSlate800,
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.teal50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSlate800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    color: AppColors.textSlate500,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(
-                label: const Text('Chấm thường'),
-                selected: mode == GradingMode.normal,
-                onSelected: (_) => onChanged(GradingMode.normal),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.indigo100,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'AI',
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.indigo600,
               ),
-              ChoiceChip(
-                label: const Text('Chấm bằng AI'),
-                selected: mode == GradingMode.ai,
-                onSelected: (_) => onChanged(GradingMode.ai),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -951,48 +1124,54 @@ class _PracticeTypeCard extends StatelessWidget {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.teal50,
-                  borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderSlate200),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.teal50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: AppColors.primary),
                 ),
-                child: Icon(icon, color: AppColors.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.lexend(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSlate800,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.lexend(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSlate800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: AppColors.textSlate500,
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          color: AppColors.textSlate500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.textSlate400),
-            ],
+                const Icon(Icons.chevron_right, color: AppColors.textSlate400),
+              ],
+            ),
           ),
         ),
       ),

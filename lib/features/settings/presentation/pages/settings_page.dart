@@ -115,6 +115,11 @@ class SettingsPage extends ConsumerWidget {
                             onTap: () => _showComingSoon(context),
                           ),
                           _SettingsItem(
+                            icon: Icons.history_edu_outlined,
+                            label: 'Lịch sử bài làm đề thi',
+                            onTap: () => context.push('/settings/test-history'),
+                          ),
+                          _SettingsItem(
                             icon: Icons.language_outlined,
                             label: 'Ngôn ngữ ứng dụng',
                             trailing: Text(
