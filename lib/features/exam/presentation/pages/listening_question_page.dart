@@ -10,24 +10,34 @@ import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
 import 'package:lexii/features/exam/data/models/test_part_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
+import 'package:lexii/features/practice/presentation/providers/practice_providers.dart';
 
 class ListeningQuestionPage extends ConsumerStatefulWidget {
   final String testId;
   final String testTitle;
   /// When set, only questions for this part are loaded (practice mode).
   final String? partId;
+  /// When set in practice mode, loads questions by listening part number across full tests.
+  final int? partNumber;
   /// In practice mode, no countdown timer is shown.
   final bool isPracticeMode;
   /// When set, only the first N questions are shown (practice mode).
   final int? questionLimit;
+  /// When set, load explicit question IDs instead of test/part queries.
+  final List<String>? questionIds;
+  /// Randomize question order before applying [questionLimit].
+  final bool randomizeQuestions;
 
   const ListeningQuestionPage({
     super.key,
     required this.testId,
     required this.testTitle,
     this.partId,
+    this.partNumber,
     this.isPracticeMode = false,
     this.questionLimit,
+    this.questionIds,
+    this.randomizeQuestions = false,
   });
 
   @override
@@ -222,6 +232,14 @@ class _ListeningQuestionPageState
   /// Returns the index of the first question of the group containing [index].
   int _groupStart(int index, List<QuestionModel> questions) {
     return _groupFor(index, questions).first;
+  }
+
+  int _displayQuestionNumber(int index, List<QuestionModel> questions) {
+    final raw = questions[index].orderIndex;
+    if (widget.isPracticeMode) {
+      return index + 1;
+    }
+    return raw > 0 ? raw : index + 1;
   }
 
   void _goToQuestion(int index, List<QuestionModel> questions) {
@@ -595,6 +613,15 @@ class _ListeningQuestionPageState
         questions: questions,
         userAnswers: _answers,
       );
+      if (widget.isPracticeMode) {
+        await repo.saveListeningPracticeTracking(
+          questions: questions,
+          userAnswers: _answers,
+        );
+        // Force immediate stats refresh when user returns to practice pages.
+        ref.invalidate(listeningPracticePartsProvider);
+        ref.invalidate(wrongListeningQuestionIdsProvider);
+      }
     } catch (e) {
       debugPrint('Failed to save attempt: $e');
     }
@@ -610,6 +637,7 @@ class _ListeningQuestionPageState
         'correct': totalCorrect,
         'total': questions.length,
         'userAnswers': Map<int, int>.from(_answers),
+        'questions': questions,
       });
       return;
     }
@@ -852,10 +880,16 @@ class _ListeningQuestionPageState
 
   @override
   Widget build(BuildContext context) {
-    // Practice mode: load only the selected part; exam mode: load all parts
-    final questionsAsync = widget.partId != null
-        ? ref.watch(questionsByPartIdProvider(widget.partId!))
-        : ref.watch(questionsByTestIdProvider(widget.testId));
+    // Practice mode: support explicit IDs and cross-test listening parts.
+    final questionsAsync = (widget.questionIds != null &&
+        widget.questionIds!.isNotEmpty)
+      ? ref.watch(questionsByIdsProvider(widget.questionIds!))
+      : (widget.partNumber != null && widget.isPracticeMode)
+        ? ref.watch(
+          questionsByListeningPartNumberProvider(widget.partNumber!))
+        : widget.partId != null
+          ? ref.watch(questionsByPartIdProvider(widget.partId!))
+          : ref.watch(questionsByTestIdProvider(widget.testId));
     // Cache parts so onTap closures can check for next-part existence
     final partsValue = ref.watch(testPartsProvider(widget.testId)).valueOrNull;
     if (partsValue != null) _cachedParts = partsValue;
@@ -902,11 +936,14 @@ class _ListeningQuestionPageState
           ),
         ),
         data: (allQuestions) {
-          // Apply optional question limit (practice mode)
-          final questions = widget.questionLimit != null &&
-                  widget.questionLimit! < allQuestions.length
-              ? allQuestions.sublist(0, widget.questionLimit!)
-              : allQuestions;
+          var questions = List<QuestionModel>.from(allQuestions);
+          if (widget.randomizeQuestions) {
+            questions.shuffle();
+          }
+          if (widget.questionLimit != null &&
+              widget.questionLimit! < questions.length) {
+            questions = questions.sublist(0, widget.questionLimit!);
+          }
           if (questions.isEmpty) {
             return Center(
               child: Column(
@@ -1037,8 +1074,8 @@ class _ListeningQuestionPageState
                                 ),
                                 child: Text(
                                   isGroup
-                                      ? 'Câu ${questions[groupIndices.first].orderIndex}–${questions[groupIndices.last].orderIndex}'
-                                      : 'Câu ${questions[_currentIndex].orderIndex}',
+                                      ? 'Câu ${_displayQuestionNumber(groupIndices.first, questions)}–${_displayQuestionNumber(groupIndices.last, questions)}'
+                                      : 'Câu ${_displayQuestionNumber(_currentIndex, questions)}',
                                   style: GoogleFonts.lexend(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -1057,7 +1094,7 @@ class _ListeningQuestionPageState
                               ),
                               const Spacer(),
                               Text(
-                                '${questions[_currentIndex].orderIndex}/$totalQ',
+                                '${_displayQuestionNumber(_currentIndex, questions)}/$totalQ',
                                 style: GoogleFonts.lexend(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -1385,7 +1422,7 @@ class _ListeningQuestionPageState
                             ),
                             child: Center(
                               child: Text(
-                                '${questions[i].orderIndex}',
+                                '${_displayQuestionNumber(i, questions)}',
                                 style: GoogleFonts.lexend(
                                   fontSize: 14,
                                   fontWeight: isCurrent
@@ -1641,7 +1678,7 @@ class _ListeningQuestionPageState
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      'Câu ${q.orderIndex}',
+                      'Câu ${_displayQuestionNumber(qIdx, questions)}',
                       style: GoogleFonts.lexend(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -1918,8 +1955,8 @@ class _ListeningQuestionPageState
                         () {
                           final grp = _groupFor(_currentIndex, questions);
                           return grp.length > 1
-                              ? 'Câu ${questions[grp.first].orderIndex}–${questions[grp.last].orderIndex} · Audio'
-                              : 'Câu ${questions[_currentIndex].orderIndex} · Audio';
+                              ? 'Câu ${_displayQuestionNumber(grp.first, questions)}–${_displayQuestionNumber(grp.last, questions)} · Audio'
+                              : 'Câu ${_displayQuestionNumber(_currentIndex, questions)} · Audio';
                         }(),
                         style: GoogleFonts.lexend(
                           fontSize: 13,

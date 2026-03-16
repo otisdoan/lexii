@@ -1,15 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
+import 'package:lexii/features/home/presentation/widgets/bottom_nav_bar.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final topPadding = MediaQuery.of(context).padding.top;
     final user = Supabase.instance.client.auth.currentUser;
+    final subscriptionInfo = ref.watch(subscriptionInfoProvider).valueOrNull;
+    final role = ref.watch(userRoleProvider).valueOrNull;
+    final metadataRole =
+      (user?.userMetadata?['role'] as String?)?.toLowerCase().trim();
+    final isPremium =
+      (subscriptionInfo?.isPremium ?? false) ||
+      role == 'premium' ||
+      metadataRole == 'premium';
+    final premiumLabel = subscriptionInfo?.statusLabel ?? 'Premium';
     final displayName =
         user?.userMetadata?['full_name'] as String? ??
         user?.userMetadata?['name'] as String? ??
@@ -19,17 +33,38 @@ class SettingsPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.slate100,
-      body: SafeArea(
-        bottom: false,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
         child: Column(
           children: [
             // Header
             Container(
               color: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: EdgeInsets.fromLTRB(16, topPadding + 16, 16, 16),
               child: Row(
                 children: [
-                  const SizedBox(width: 40),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                          return;
+                        }
+                        context.go('/home');
+                      },
+                    ),
+                  ),
                   Expanded(
                     child: Center(
                       child: Text(
@@ -55,9 +90,12 @@ class SettingsPage extends StatelessWidget {
                   children: [
                     // Profile section
                     _ProfileSection(
+                      key: ValueKey(user?.id ?? 'guest'),
                       displayName: displayName,
                       avatarUrl: avatarUrl,
                       email: user?.email,
+                      isPremium: isPremium,
+                      premiumLabel: premiumLabel,
                       onLogout: () => _handleLogout(context),
                     ),
                     const SizedBox(height: 24),
@@ -177,7 +215,30 @@ class SettingsPage extends StatelessWidget {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: 4,
+        onTap: (index) => _onNavTap(context, index),
+      ),
     );
+  }
+
+  void _onNavTap(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        context.go('/home');
+        return;
+      case 1:
+        context.go('/exam/mock-test');
+        return;
+      case 2:
+        context.go('/theory');
+        return;
+      case 3:
+        context.go('/upgrade');
+        return;
+      case 4:
+        return;
+    }
   }
 
   void _showComingSoon(BuildContext context) {
@@ -242,101 +303,248 @@ class _ProfileSection extends StatelessWidget {
   final String displayName;
   final String? avatarUrl;
   final String? email;
+  final bool isPremium;
+  final String? premiumLabel;
   final VoidCallback onLogout;
 
   const _ProfileSection({
+    super.key,
     required this.displayName,
     required this.avatarUrl,
     required this.email,
+    required this.isPremium,
+    required this.premiumLabel,
     required this.onLogout,
   });
 
   @override
   Widget build(BuildContext context) {
+    final premiumGradient = const LinearGradient(
+      colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A), Color(0xFFF59E0B)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isPremium ? null : Colors.white,
+        gradient: isPremium ? premiumGradient : null,
         borderRadius: BorderRadius.circular(16),
+        border: isPremium
+            ? Border.all(color: const Color(0xFFFFFBEB), width: 1.5)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
+            color: isPremium
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.28)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: isPremium ? 18 : 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Avatar
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.teal100,
-            backgroundImage:
-                avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-            child: avatarUrl == null
-                ? Text(
-                    displayName.isNotEmpty
-                        ? displayName[0].toUpperCase()
-                        : 'U',
-                    style: GoogleFonts.lexend(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: isPremium ? 0.9 : 1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            _ProfileAvatar(
+              displayName: displayName,
+              avatarUrl: avatarUrl,
+              isPremium: isPremium,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isPremium)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFB45309),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'Premium',
+                        style: GoogleFonts.lexend(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 16),
-          // Name & email
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSlate800,
+                  Text(
+                    displayName,
+                    style: GoogleFonts.lexend(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSlate800,
+                    ),
+                  ),
+                  if (email != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      email!,
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        color: AppColors.textSlate500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: onLogout,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.orange500,
+                side: BorderSide(color: AppColors.orange500.withValues(alpha: 0.4)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                textStyle: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatefulWidget {
+  final String displayName;
+  final String? avatarUrl;
+  final bool isPremium;
+
+  const _ProfileAvatar({
+    required this.displayName,
+    required this.avatarUrl,
+    required this.isPremium,
+  });
+
+  @override
+  State<_ProfileAvatar> createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends State<_ProfileAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ringController;
+
+  @override
+  void initState() {
+    super.initState();
+    _ringController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ringController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = CircleAvatar(
+      radius: 34,
+      backgroundColor:
+          widget.isPremium ? const Color(0xFFFFF7D6) : AppColors.teal100,
+      backgroundImage:
+          widget.avatarUrl != null ? NetworkImage(widget.avatarUrl!) : null,
+      child: widget.avatarUrl == null
+          ? Text(
+              widget.displayName.isNotEmpty
+                  ? widget.displayName[0].toUpperCase()
+                  : 'U',
+              style: GoogleFonts.lexend(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: widget.isPremium
+                    ? const Color(0xFFB45309)
+                    : AppColors.primary,
+              ),
+            )
+          : null,
+    );
+
+    if (!widget.isPremium) {
+      return avatar;
+    }
+
+    return AnimatedBuilder(
+      animation: _ringController,
+      builder: (context, child) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: SweepGradient(
+                  colors: const [
+                    Color(0xFFFF3B30),
+                    Color(0xFFFF9500),
+                    Color(0xFFFFCC00),
+                    Color(0xFF34C759),
+                    Color(0xFF007AFF),
+                    Color(0xFF5856D6),
+                    Color(0xFFAF52DE),
+                    Color(0xFFFF3B30),
+                  ],
+                  transform: GradientRotation(
+                    _ringController.value * 6.283185307,
                   ),
                 ),
-                if (email != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    email!,
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      color: AppColors.textSlate500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFAF52DE).withValues(alpha: 0.32),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
                   ),
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Logout button
-          OutlinedButton(
-            onPressed: onLogout,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.orange500,
-              side: BorderSide(color: AppColors.orange500.withValues(alpha: 0.4)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              textStyle: GoogleFonts.lexend(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+              child: child,
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB45309),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium,
+                  size: 13,
+                  color: Colors.white,
+                ),
               ),
             ),
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
+      child: avatar,
     );
   }
 }

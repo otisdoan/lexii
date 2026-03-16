@@ -1,85 +1,111 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
+import 'package:lexii/features/home/presentation/widgets/bottom_nav_bar.dart';
+import 'package:lexii/features/settings/data/services/payos_checkout_service.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class UpgradePage extends StatefulWidget {
+class UpgradePage extends ConsumerStatefulWidget {
   const UpgradePage({super.key});
 
   @override
-  State<UpgradePage> createState() => _UpgradePageState();
+  ConsumerState<UpgradePage> createState() => _UpgradePageState();
 }
 
-class _UpgradePageState extends State<UpgradePage> {
-  // 0 = 6 tháng, 1 = Trọn đời, 2 = Hàng năm
+class _UpgradePageState extends ConsumerState<UpgradePage> {
+  final PageController _pageController = PageController();
+  final PayosCheckoutService _checkoutService = PayosCheckoutService();
+  Timer? _autoSlideTimer;
+
   int _selectedPlan = 1;
+  int _currentSlide = 0;
+  bool _isCreatingCheckout = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      final next = (_currentSlide + 1) % _slides.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isPremiumUser = ref.watch(isPremiumProvider).valueOrNull ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.slate100,
-      body: SafeArea(
-        bottom: false,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
         child: Column(
           children: [
-            // Header
-            Container(
-              color: AppColors.primary,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => context.pop(),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Nâng cấp',
-                        style: GoogleFonts.lexend(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-            // Scrollable body
+            _UpgradeHeader(onBack: _handleBack),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Section 1: Feature Banner
-                    _FeatureBanner(),
-                    const SizedBox(height: 20),
-                    // Section 2: Subscription Plans
+                    _FeatureCarousel(
+                      pageController: _pageController,
+                      currentSlide: _currentSlide,
+                      onPageChanged: (index) {
+                        setState(() => _currentSlide = index);
+                      },
+                      onDotTap: (index) {
+                        _pageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOut,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const _SocialProofRow(),
+                    const SizedBox(height: 24),
                     _PlanSelector(
-                      selected: _selectedPlan,
-                      onSelect: (i) => setState(() => _selectedPlan = i),
+                      selectedPlan: _selectedPlan,
+                      onSelect: (value) =>
+                          setState(() => _selectedPlan = value),
                     ),
                     const SizedBox(height: 20),
-                    // CTA Button
-                    _UpgradeButton(planIndex: _selectedPlan),
+                    _UpgradeButton(
+                      selectedPlan: _selectedPlan,
+                      isLoading: _isCreatingCheckout,
+                      onPressed: () => _handleUpgradePress(isPremiumUser),
+                    ),
                     const SizedBox(height: 16),
-                    // Section 3: Restore & Skip
-                    _RestoreSkipSection(onSkip: () => context.pop()),
-                    const SizedBox(height: 20),
-                    // Section 4: Account Status
-                    _AccountStatusSection(),
-                    const SizedBox(height: 20),
-                    // Section 5: Feature Comparison
-                    _FeatureComparisonTable(),
-                    const SizedBox(height: 20),
-                    // Section 6: User Reviews
-                    _UserReviewsSection(),
+                    const _AccountStatusSection(),
                     const SizedBox(height: 16),
+                    const _FeatureComparisonTable(),
+                    const SizedBox(height: 16),
+                    const _UserReviewsSection(),
                   ],
                 ),
               ),
@@ -87,13 +113,317 @@ class _UpgradePageState extends State<UpgradePage> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: 3,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+  void _onNavTap(int index) {
+    switch (index) {
+      case 0:
+        context.go('/home');
+        return;
+      case 1:
+        context.go('/exam/mock-test');
+        return;
+      case 2:
+        context.go('/theory');
+        return;
+      case 3:
+        return;
+      case 4:
+        context.go('/settings');
+        return;
+    }
+  }
+
+  void _handleBack() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go('/home');
+  }
+
+  Future<void> _handleUpgradePress(bool isPremiumUser) async {
+    if (_isCreatingCheckout) return;
+
+    if (isPremiumUser) {
+      _showSnackBar('Tài khoản của bạn đã là Premium');
+      return;
+    }
+
+    setState(() => _isCreatingCheckout = true);
+    try {
+      final checkoutSession = await _checkoutService.createCheckoutSession(
+        planIndex: _selectedPlan,
+      );
+      final checkoutUrl = checkoutSession.checkoutUrl;
+      debugPrint('[PAYMENT] checkoutUrl=$checkoutUrl');
+
+      final qrContent = checkoutSession.qrContent;
+      if (qrContent != null && qrContent.trim().isNotEmpty && mounted) {
+        await _showQrBottomSheet(
+          qrContent: qrContent,
+          checkoutUrl: checkoutUrl,
+          orderCode: checkoutSession.orderCode,
+        );
+        return;
+      }
+
+      final launched = await _openCheckoutUrl(checkoutUrl);
+      debugPrint('[PAYMENT] launchResult=$launched, kIsWeb=$kIsWeb');
+
+      if (!launched) {
+        _showSnackBar('Không mở được trang thanh toán. Vui lòng thử lại.');
+      }
+    } catch (e) {
+      final isAuthError = _isAuthError(e);
+
+      _showSnackBar(_friendlyPaymentError(e));
+
+      if (isAuthError &&
+          Supabase.instance.client.auth.currentUser == null &&
+          mounted) {
+        context.go('/auth/signup');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingCheckout = false);
+      }
+    }
+  }
+
+  Future<bool> _openCheckoutUrl(String checkoutUrl) async {
+    final uri = Uri.parse(checkoutUrl);
+
+    if (kIsWeb) {
+      return launchUrl(uri, webOnlyWindowName: '_self');
+    }
+
+    return launchUrl(uri, mode: LaunchMode.inAppWebView);
+  }
+
+  Future<void> _showQrBottomSheet({
+    required String qrContent,
+    required String checkoutUrl,
+    required String orderCode,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.textSlate300,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              Text(
+                'Quét mã QR để thanh toán',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSlate900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Dùng app ngân hàng để quét mã bên dưới.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  color: AppColors.textSlate500,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSlate200),
+                ),
+                child: QrImageView(
+                  data: qrContent,
+                  size: 220,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              if (orderCode.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Mã đơn: $orderCode',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    color: AppColors.textSlate500,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final launched = await _openCheckoutUrl(checkoutUrl);
+                    if (!launched && mounted) {
+                      _showSnackBar(
+                        'Không mở được trang thanh toán. Vui lòng thử lại.',
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Mở trang thanh toán',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.lexend(color: Colors.white, fontSize: 13),
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  bool _isAuthError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('401') ||
+        message.contains('unauthorized') ||
+        message.contains('missing auth header') ||
+        message.contains('invalid jwt') ||
+        message.contains('dang nhap') ||
+        message.contains('refresh token');
+  }
+
+  String _friendlyPaymentError(Object error) {
+    final raw = error
+        .toString()
+        .replaceFirst(RegExp(r'^Exception:\s*'), '')
+        .trim();
+    final normalized = raw.toLowerCase();
+    final auth = Supabase.instance.client.auth;
+    final hasAuthState = auth.currentUser != null || auth.currentSession != null;
+
+    if (normalized.contains('socketexception') ||
+        normalized.contains('failed host lookup') ||
+        normalized.contains('network')) {
+      return 'Không kết nối được mạng. Vui lòng kiểm tra Internet.';
+    }
+
+    if (_isAuthError(error)) {
+      if (hasAuthState) {
+        if (raw.isNotEmpty) {
+          return 'Token thanh toán bị từ chối: $raw';
+        }
+        return 'Đăng nhập vẫn còn nhưng token thanh toán bị từ chối. Vui lòng đăng xuất rồi đăng nhập lại 1 lần.';
+      }
+      return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    }
+
+    if (raw.isEmpty) {
+      return 'Tạo thanh toán thất bại. Vui lòng thử lại.';
+    }
+
+    return 'Tạo thanh toán thất bại: $raw';
+  }
+}
+
+class _UpgradeHeader extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const _UpgradeHeader({required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 8,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(8, topPadding + 10, 8, 10),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            color: Colors.white,
+          ),
+          const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            'Nâng cấp Premium',
+            style: GoogleFonts.lexend(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ─── Feature Banner ───────────────────────────────────────────────────────────
+class _FeatureCarousel extends StatelessWidget {
+  final PageController pageController;
+  final int currentSlide;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<int> onDotTap;
 
-class _FeatureBanner extends StatelessWidget {
+  const _FeatureCarousel({
+    required this.pageController,
+    required this.currentSlide,
+    required this.onPageChanged,
+    required this.onDotTap,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -103,292 +433,354 @@ class _FeatureBanner extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 230,
+            child: PageView.builder(
+              controller: pageController,
+              onPageChanged: onPageChanged,
+              itemCount: _slides.length,
+              itemBuilder: (context, index) {
+                final slide = _slides[index];
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: slide.iconBackground,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          slide.icon,
+                          size: 40,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        slide.title,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.lexend(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSlate800,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        slide.description,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          color: AppColors.textSlate500,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_slides.length, (index) {
+                final isActive = currentSlide == index;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => onDotTap(index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      width: isActive ? 22 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(99),
+                        color: isActive
+                            ? AppColors.primary
+                            : AppColors.slate200,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocialProofRow extends StatelessWidget {
+  const _SocialProofRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 10,
+      alignment: WrapAlignment.center,
+      children: const [
+        _ProofChip(icon: '⭐', text: '4.8/5 từ hơn 3.200 học viên'),
+        _ProofChip(icon: '🔥', text: '12.000+ người đang học trên Lexii'),
+      ],
+    );
+  }
+}
+
+class _ProofChip extends StatelessWidget {
+  final String icon;
+  final String text;
+
+  const _ProofChip({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Icon
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.workspace_premium_rounded,
-              size: 52,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
+          Text(icon, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 8),
           Text(
-            '30 đề thi cấu trúc MỚI NHẤT',
-            textAlign: TextAlign.center,
+            text,
             style: GoogleFonts.lexend(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSlate800,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSlate600,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '12.000 câu hỏi TOEIC đầy đủ đáp án và giải thích chi tiết',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.lexend(
-              fontSize: 13,
-              color: AppColors.textSlate500,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Dots indicator
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _dot(true),
-              const SizedBox(width: 6),
-              _dot(false),
-              const SizedBox(width: 6),
-              _dot(false),
-            ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _dot(bool active) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: active
-            ? AppColors.primary
-            : AppColors.primary.withValues(alpha: 0.3),
       ),
     );
   }
 }
 
-// ─── Plan Selector ────────────────────────────────────────────────────────────
-
 class _PlanSelector extends StatelessWidget {
-  final int selected;
+  final int selectedPlan;
   final ValueChanged<int> onSelect;
 
-  const _PlanSelector({required this.selected, required this.onSelect});
+  const _PlanSelector({required this.selectedPlan, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 160,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        children: [
-          // 6 tháng
-          _PlanCard(
-            title: '6 tháng',
-            badge: '10% OFF',
-            badgeColor: AppColors.primary,
-            price: null,
-            priceLabel: null,
-            isHighlighted: false,
-            isSelected: selected == 0,
-            onTap: () => onSelect(0),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Chọn gói phù hợp với bạn',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.lexend(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSlate800,
           ),
-          const SizedBox(width: 12),
-          // Trọn đời (highlighted)
-          _PlanCard(
-            title: 'Trọn đời',
-            badge: 'Best Choice',
-            badgeColor: AppColors.primary,
-            price: '1.499.000 đ',
-            originalPrice: '2.998.000 đ',
-            discount: 'GIẢM 50%',
-            isHighlighted: true,
-            isSelected: selected == 1,
-            onTap: () => onSelect(1),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 198,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _plans.length,
+            padding: const EdgeInsets.fromLTRB(2, 16, 2, 6),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final plan = _plans[index];
+              final isSelected = selectedPlan == plan.id;
+              return _PlanCard(
+                plan: plan,
+                isSelected: isSelected,
+                onTap: () => onSelect(plan.id),
+              );
+            },
           ),
-          const SizedBox(width: 12),
-          // Hàng năm
-          _PlanCard(
-            title: 'Hàng năm',
-            badge: null,
-            badgeColor: AppColors.primary,
-            price: '599.000 đ',
-            priceLabel: 'Chỉ 49.000 đ/tháng',
-            isHighlighted: false,
-            isSelected: selected == 2,
-            onTap: () => onSelect(2),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_plans.length, (index) {
+            final isActive = selectedPlan == _plans[index].id;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isActive ? 20 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: isActive
+                    ? AppColors.primary
+                    : AppColors.textSlate300,
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }
 
 class _PlanCard extends StatelessWidget {
-  final String title;
-  final String? badge;
-  final Color badgeColor;
-  final String? price;
-  final String? originalPrice;
-  final String? discount;
-  final String? priceLabel;
-  final bool isHighlighted;
+  final _Plan plan;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _PlanCard({
-    required this.title,
-    required this.badge,
-    required this.badgeColor,
-    required this.isHighlighted,
+    required this.plan,
     required this.isSelected,
     required this.onTap,
-    this.price,
-    this.originalPrice,
-    this.discount,
-    this.priceLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    final double cardWidth = isHighlighted ? 200 : 140;
-    return GestureDetector(
+    final bool isFeatured = plan.featured;
+    final double width = isFeatured ? 196 : 152;
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(isFeatured ? 16 : 14),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: cardWidth,
-        padding: EdgeInsets.all(isHighlighted ? 20 : 16),
+        duration: const Duration(milliseconds: 220),
+        width: width,
+        padding: EdgeInsets.fromLTRB(14, isFeatured ? 26 : 14, 14, 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(isHighlighted ? 16 : 12),
+          borderRadius: BorderRadius.circular(isFeatured ? 16 : 14),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.borderSlate200,
             width: isSelected ? 2 : 1,
           ),
-          boxShadow: isHighlighted
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
+          boxShadow: [
+            BoxShadow(
+              color: isFeatured
+                  ? AppColors.primary.withValues(alpha: 0.16)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: isFeatured ? 18 : 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (badge != null) ...[
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      badge!,
-                      style: GoogleFonts.lexend(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: badgeColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                Text(
-                  title,
-                  style: GoogleFonts.lexend(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSlate800,
-                  ),
-                ),
-                if (price != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    price!,
-                    style: GoogleFonts.lexend(
-                      fontSize: isHighlighted ? 20 : 16,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-                if (originalPrice != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    originalPrice!,
-                    style: GoogleFonts.lexend(
-                      fontSize: 11,
-                      color: AppColors.textSlate400,
-                      decoration: TextDecoration.lineThrough,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-                if (discount != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    discount!,
-                    style: GoogleFonts.lexend(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.orange500,
-                    ),
-                  ),
-                ],
-                if (priceLabel != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    priceLabel!,
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      color: AppColors.textSlate500,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            // "Best Choice" top badge for highlighted
-            if (isHighlighted)
+            if (plan.badge != null)
               Positioned(
-                top: -28,
+                top: -30,
                 left: 0,
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      'Best Choice',
+                      plan.badge!,
                       style: GoogleFonts.lexend(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
-                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
                 ),
               ),
+            if (isSelected)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, size: 13, color: Colors.white),
+                ),
+              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plan.label,
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSlate400,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  plan.price,
+                  style: GoogleFonts.lexend(
+                    fontSize: isFeatured ? 28 : 22,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                    height: 1.1,
+                  ),
+                ),
+                if (plan.discount != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      plan.discount!,
+                      style: GoogleFonts.lexend(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFC84B11),
+                      ),
+                    ),
+                  ),
+                ],
+                if (plan.subPrice != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    plan.subPrice!,
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      color: AppColors.textSlate400,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -396,133 +788,73 @@ class _PlanCard extends StatelessWidget {
   }
 }
 
-// ─── Upgrade Button ───────────────────────────────────────────────────────────
-
 class _UpgradeButton extends StatelessWidget {
-  final int planIndex;
+  final int selectedPlan;
+  final bool isLoading;
+  final VoidCallback onPressed;
 
-  const _UpgradeButton({required this.planIndex});
-
-  String get _buttonLabel {
-    switch (planIndex) {
-      case 0:
-        return 'Nâng cấp 6 tháng';
-      case 2:
-        return 'Nâng cấp hàng năm';
-      default:
-        return 'Nâng cấp trọn đời';
-    }
-  }
+  const _UpgradeButton({
+    required this.selectedPlan,
+    required this.isLoading,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Tính năng đang phát triển',
-                style: GoogleFonts.lexend(color: Colors.white, fontSize: 13),
-              ),
-              backgroundColor: AppColors.primary,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
+      height: 54,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1C9C8C), Color(0xFF14B8A6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1C9C8C).withValues(alpha: 0.28),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(26),
-          ),
-          elevation: 0,
+          ],
         ),
-        child: Text(
-          _buttonLabel,
-          style: GoogleFonts.lexend(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+        child: ElevatedButton(
+          onPressed: isLoading ? null : onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  'Nâng cấp gói đã chọn',
+                  style: GoogleFonts.lexend(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
         ),
       ),
     );
   }
 }
 
-// ─── Restore & Skip ───────────────────────────────────────────────────────────
-
-class _RestoreSkipSection extends StatelessWidget {
-  final VoidCallback onSkip;
-
-  const _RestoreSkipSection({required this.onSkip});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Tính năng đang phát triển',
-                  style: GoogleFonts.lexend(color: Colors.white, fontSize: 13),
-                ),
-                backgroundColor: AppColors.primary,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          },
-          child: Text(
-            'Khôi phục thanh toán',
-            style: GoogleFonts.lexend(
-              color: AppColors.primary,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Bạn có thể trải nghiệm một số phần miễn phí\nmà không cần nâng cấp.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.lexend(
-            fontSize: 12,
-            color: AppColors.textSlate400,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: onSkip,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Bỏ qua và tiếp tục ',
-                style: GoogleFonts.lexend(
-                  color: AppColors.orange500,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.orange500, size: 18),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Account Status Section ───────────────────────────────────────────────────
-
 class _AccountStatusSection extends StatelessWidget {
+  const _AccountStatusSection();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -546,10 +878,14 @@ class _AccountStatusSection extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppColors.teal50,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person, color: AppColors.primary, size: 22),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -572,12 +908,15 @@ class _AccountStatusSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: ['9', '9', '5', '7']
-                .map((d) => _ScoreBox(digit: d))
-                .toList(),
+            children: [
+              '9',
+              '9',
+              '5',
+              '7',
+            ].map((digit) => _ScoreBox(digit: digit)).toList(),
           ),
         ],
       ),
@@ -614,15 +953,15 @@ class _ScoreBox extends StatelessWidget {
   }
 }
 
-// ─── Feature Comparison Table ─────────────────────────────────────────────────
-
 class _FeatureComparisonTable extends StatelessWidget {
+  const _FeatureComparisonTable();
+
   static const _rows = [
     _ComparisonRow('Luyện tập part 1,2,5', true, true),
     _ComparisonRow('Học lý thuyết', true, true),
-    _ComparisonRow('Luyện tập FULL 7 dạng bài', false, true),
-    _ComparisonRow('Sử dụng ngoại tuyến', false, true),
-    _ComparisonRow('Loại bỏ quảng cáo', false, true),
+    _ComparisonRow('Phân tích điểm mạnh/yếu', false, true),
+    _ComparisonRow('Đề thi TOEIC Premium', false, true),
+    _ComparisonRow('Giải thích chi tiết mọi câu hỏi', false, true),
   ];
 
   @override
@@ -633,7 +972,7 @@ class _FeatureComparisonTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -643,27 +982,25 @@ class _FeatureComparisonTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
-            // Header row
             Container(
               color: AppColors.slate50,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Tính năng',
+                      'TÍNH NĂNG',
                       style: GoogleFonts.lexend(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textSlate500,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ),
                   SizedBox(
-                    width: 70,
+                    width: 72,
                     child: Center(
                       child: Text(
                         'Miễn phí',
@@ -676,7 +1013,7 @@ class _FeatureComparisonTable extends StatelessWidget {
                     ),
                   ),
                   SizedBox(
-                    width: 70,
+                    width: 72,
                     child: Center(
                       child: Text(
                         'Premium',
@@ -691,8 +1028,7 @@ class _FeatureComparisonTable extends StatelessWidget {
                 ],
               ),
             ),
-            ..._rows.map((r) => _buildRow(r)),
-            // Last row: exam count
+            ..._rows.map(_buildRow),
             _buildCountRow('Mở khóa đề thi thử', '4', '30'),
           ],
         ),
@@ -705,8 +1041,7 @@ class _FeatureComparisonTable extends StatelessWidget {
       children: [
         const Divider(height: 1, color: AppColors.borderSlate100),
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Expanded(
@@ -721,26 +1056,21 @@ class _FeatureComparisonTable extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 70,
+                width: 72,
                 child: Center(
                   child: Icon(
-                    row.free
-                        ? Icons.check_circle
-                        : Icons.lock_outline,
+                    row.free ? Icons.check : Icons.lock_outline,
                     size: 20,
-                    color:
-                        row.free ? AppColors.green600 : AppColors.textSlate300,
+                    color: row.free
+                        ? AppColors.green600
+                        : AppColors.textSlate300,
                   ),
                 ),
               ),
-              SizedBox(
-                width: 70,
+              const SizedBox(
+                width: 72,
                 child: Center(
-                  child: Icon(
-                    Icons.check_circle,
-                    size: 20,
-                    color: AppColors.primary,
-                  ),
+                  child: Icon(Icons.check, size: 20, color: AppColors.primary),
                 ),
               ),
             ],
@@ -755,8 +1085,7 @@ class _FeatureComparisonTable extends StatelessWidget {
       children: [
         const Divider(height: 1, color: AppColors.borderSlate100),
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Expanded(
@@ -771,7 +1100,7 @@ class _FeatureComparisonTable extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 70,
+                width: 72,
                 child: Center(
                   child: Text(
                     freeCount,
@@ -784,7 +1113,7 @@ class _FeatureComparisonTable extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 70,
+                width: 72,
                 child: Center(
                   child: Text(
                     premiumCount,
@@ -812,23 +1141,8 @@ class _ComparisonRow {
   const _ComparisonRow(this.feature, this.free, this.premium);
 }
 
-// ─── User Reviews Section ─────────────────────────────────────────────────────
-
 class _UserReviewsSection extends StatelessWidget {
-  static const _reviews = [
-    _Review(
-      name: 'Chàng Thơ',
-      stars: 5,
-      text:
-          '"App cực kỳ chất lượng, đề thi sát với thực tế. Mình đã đạt được 850+ nhờ luyện tập đều đặn trên đây. Rất đáng đồng tiền bát gạo!"',
-    ),
-    _Review(
-      name: 'Minh Trí',
-      stars: 5,
-      text:
-          '"Giải thích chi tiết từng câu hỏi, rất dễ hiểu. Chỉ sau 2 tháng tôi đã tăng thêm 150 điểm!"',
-    ),
-  ];
+  const _UserReviewsSection();
 
   @override
   Widget build(BuildContext context) {
@@ -843,11 +1157,11 @@ class _UserReviewsSection extends StatelessWidget {
             color: AppColors.textSlate800,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         ..._reviews.map(
-          (r) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _ReviewCard(review: r),
+          (review) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _ReviewCard(review: review),
           ),
         ),
       ],
@@ -882,7 +1196,7 @@ class _ReviewCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                backgroundColor: AppColors.teal50,
                 child: Text(
                   review.name[0],
                   style: GoogleFonts.lexend(
@@ -906,8 +1220,11 @@ class _ReviewCard extends StatelessWidget {
                   Row(
                     children: List.generate(
                       review.stars,
-                      (_) => const Icon(Icons.star,
-                          size: 14, color: AppColors.yellow500),
+                      (_) => const Icon(
+                        Icons.star,
+                        size: 14,
+                        color: AppColors.yellow500,
+                      ),
                     ),
                   ),
                 ],
@@ -921,12 +1238,47 @@ class _ReviewCard extends StatelessWidget {
               fontSize: 12,
               color: AppColors.textSlate600,
               fontStyle: FontStyle.italic,
+              height: 1.4,
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _Slide {
+  final IconData icon;
+  final Color iconBackground;
+  final String title;
+  final String description;
+
+  const _Slide({
+    required this.icon,
+    required this.iconBackground,
+    required this.title,
+    required this.description,
+  });
+}
+
+class _Plan {
+  final int id;
+  final String label;
+  final String price;
+  final String? subPrice;
+  final String? badge;
+  final String? discount;
+  final bool featured;
+
+  const _Plan({
+    required this.id,
+    required this.label,
+    required this.price,
+    required this.subPrice,
+    required this.badge,
+    required this.discount,
+    required this.featured,
+  });
 }
 
 class _Review {
@@ -936,3 +1288,75 @@ class _Review {
 
   const _Review({required this.name, required this.stars, required this.text});
 }
+
+const List<_Slide> _slides = [
+  _Slide(
+    icon: Icons.menu_book_rounded,
+    iconBackground: Color(0xFFE6F7F5),
+    title: '30 đề thi TOEIC ETS mới nhất',
+    description: '12.000 câu hỏi có đáp án và giải thích chi tiết',
+  ),
+  _Slide(
+    icon: Icons.headphones_rounded,
+    iconBackground: Color(0xFFEEF2FF),
+    title: 'Luyện nghe chuẩn ETS',
+    description: '600+ audio giúp luyện nghe từ Part 1 đến Part 4',
+  ),
+  _Slide(
+    icon: Icons.bar_chart_rounded,
+    iconBackground: Color(0xFFFFF7ED),
+    title: 'Phân tích điểm thi thông minh',
+    description: 'Hệ thống tự động phân tích điểm yếu và gợi ý lộ trình học',
+  ),
+  _Slide(
+    icon: Icons.bookmark_added_rounded,
+    iconBackground: Color(0xFFF5F3FF),
+    title: 'Học từ vựng theo chủ đề',
+    description: '3000+ từ vựng TOEIC với flashcard và quiz',
+  ),
+];
+
+const List<_Plan> _plans = [
+  _Plan(
+    id: 0,
+    label: '6 tháng',
+    price: '299.000đ',
+    subPrice: '49.000đ / tháng',
+    badge: null,
+    discount: null,
+    featured: false,
+  ),
+  _Plan(
+    id: 1,
+    label: 'Trọn đời',
+    price: '1.499.000đ',
+    subPrice: null,
+    badge: 'Phổ biến nhất',
+    discount: 'Giảm 50%',
+    featured: true,
+  ),
+  _Plan(
+    id: 2,
+    label: '1 năm',
+    price: '599.000đ',
+    subPrice: '49.000đ / tháng',
+    badge: null,
+    discount: null,
+    featured: false,
+  ),
+];
+
+const List<_Review> _reviews = [
+  _Review(
+    name: 'Chàng Thơ',
+    stars: 5,
+    text:
+        '"App cực kỳ chất lượng, đề thi sát với thực tế. Mình đã đạt được 850+ nhờ luyện tập đều đặn trên đây. Rất đáng đồng tiền bát gạo!"',
+  ),
+  _Review(
+    name: 'Minh Trí',
+    stars: 5,
+    text:
+        '"Giải thích chi tiết từng câu hỏi, rất dễ hiểu. Chỉ sau 2 tháng tôi đã tăng thêm 150 điểm!"',
+  ),
+];

@@ -147,6 +147,366 @@ class QuestionRepository {
     }
   }
 
+  /// Fetch questions for one listening part number (1..4) across all full tests.
+  Future<List<QuestionModel>> getQuestionsByListeningPartNumber(
+      int partNumber) async {
+    try {
+      final testsResponse = await _client
+          .from('tests')
+          .select('id')
+          .eq('type', 'full_test') as List<dynamic>;
+      if (testsResponse.isEmpty) return [];
+
+      final testIds = testsResponse.map((t) => t['id'] as String).toList();
+      final partsResponse = await _client
+          .from('test_parts')
+          .select('id')
+          .inFilter('test_id', testIds)
+          .eq('part_number', partNumber) as List<dynamic>;
+      if (partsResponse.isEmpty) return [];
+
+      final partIds = partsResponse.map((p) => p['id'] as String).toList();
+      final response = await _client
+          .from('questions')
+          .select('''
+            id,
+            part_id,
+            passage_id,
+            question_text,
+            order_index,
+            question_options (id, content, is_correct),
+            question_media (id, type, url)
+          ''')
+          .inFilter('part_id', partIds)
+          .order('order_index', ascending: true) as List<dynamic>;
+
+      final passageIds = response
+          .map((q) => q['passage_id'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      final passageMap = <String, String>{};
+      if (passageIds.isNotEmpty) {
+        final passagesResponse = await _client
+            .from('passages')
+            .select('id, content')
+            .inFilter('id', passageIds) as List<dynamic>;
+        for (final p in passagesResponse) {
+          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
+        }
+      }
+
+      return response.map((json) {
+        final q = QuestionModel.fromJson(json);
+        final content = q.passageId != null ? passageMap[q.passageId] : null;
+        return content != null ? q.withPassageContent(content) : q;
+      }).toList();
+    } catch (e, stack) {
+      developer.log('Error fetching listening part questions: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Fetch questions for one reading part number (5..7) across all full tests.
+  Future<List<QuestionModel>> getQuestionsByReadingPartNumber(
+      int partNumber) async {
+    try {
+      final testsResponse = await _client
+          .from('tests')
+          .select('id')
+          .eq('type', 'full_test') as List<dynamic>;
+      if (testsResponse.isEmpty) return [];
+
+      final testIds = testsResponse.map((t) => t['id'] as String).toList();
+      final partsResponse = await _client
+          .from('test_parts')
+          .select('id')
+          .inFilter('test_id', testIds)
+          .eq('part_number', partNumber) as List<dynamic>;
+      if (partsResponse.isEmpty) return [];
+
+      final partIds = partsResponse.map((p) => p['id'] as String).toList();
+      final response = await _client
+          .from('questions')
+          .select('''
+            id,
+            part_id,
+            passage_id,
+            question_text,
+            order_index,
+            question_options (id, content, is_correct),
+            question_media (id, type, url)
+          ''')
+          .inFilter('part_id', partIds)
+          .order('order_index', ascending: true) as List<dynamic>;
+
+      final passageIds = response
+          .map((q) => q['passage_id'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      final passageMap = <String, String>{};
+      if (passageIds.isNotEmpty) {
+        final passagesResponse = await _client
+            .from('passages')
+            .select('id, content')
+            .inFilter('id', passageIds) as List<dynamic>;
+        for (final p in passagesResponse) {
+          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
+        }
+      }
+
+      return response.map((json) {
+        final q = QuestionModel.fromJson(json);
+        final content = q.passageId != null ? passageMap[q.passageId] : null;
+        return content != null ? q.withPassageContent(content) : q;
+      }).toList();
+    } catch (e, stack) {
+      developer.log('Error fetching reading part questions: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Fetch questions by explicit IDs.
+  Future<List<QuestionModel>> getQuestionsByIds(List<String> questionIds) async {
+    try {
+      if (questionIds.isEmpty) return [];
+
+      final response = await _client
+          .from('questions')
+          .select('''
+            id,
+            part_id,
+            passage_id,
+            question_text,
+            order_index,
+            question_options (id, content, is_correct),
+            question_media (id, type, url)
+          ''')
+          .inFilter('id', questionIds)
+          .order('order_index', ascending: true) as List<dynamic>;
+
+      final passageIds = response
+          .map((q) => q['passage_id'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      final passageMap = <String, String>{};
+      if (passageIds.isNotEmpty) {
+        final passagesResponse = await _client
+            .from('passages')
+            .select('id, content')
+            .inFilter('id', passageIds) as List<dynamic>;
+        for (final p in passagesResponse) {
+          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
+        }
+      }
+
+      return response.map((json) {
+        final q = QuestionModel.fromJson(json);
+        final content = q.passageId != null ? passageMap[q.passageId] : null;
+        return content != null ? q.withPassageContent(content) : q;
+      }).toList();
+    } catch (e, stack) {
+      developer.log('Error fetching questions by ids: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Get wrong question IDs for the current user, optionally filtered by listening part.
+  Future<List<String>> getWrongQuestionIds({int? partNumber, int limit = 100}) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      final rows = await _client
+          .from('wrong_questions')
+          .select('question_id, last_answered_at')
+          .eq('user_id', userId)
+          .order('last_answered_at', ascending: false)
+          .limit(limit) as List<dynamic>;
+
+      final orderedIds = rows.map((r) => r['question_id'] as String).toList();
+      if (orderedIds.isEmpty || partNumber == null) return orderedIds;
+
+      final questions = await _client
+          .from('questions')
+          .select('id, part_id')
+          .inFilter('id', orderedIds) as List<dynamic>;
+      if (questions.isEmpty) return [];
+
+      final partIdByQuestionId = <String, String>{};
+      final partIds = <String>{};
+      for (final q in questions) {
+        final qid = q['id'] as String;
+        final pid = q['part_id'] as String;
+        partIdByQuestionId[qid] = pid;
+        partIds.add(pid);
+      }
+
+      final parts = await _client
+          .from('test_parts')
+          .select('id, part_number')
+          .inFilter('id', partIds.toList()) as List<dynamic>;
+      final numberByPartId = <String, int>{};
+      for (final p in parts) {
+        numberByPartId[p['id'] as String] = (p['part_number'] as num).toInt();
+      }
+
+      final filtered = <String>[];
+      for (final qid in orderedIds) {
+        final pid = partIdByQuestionId[qid];
+        if (pid == null) continue;
+        if (numberByPartId[pid] == partNumber) {
+          filtered.add(qid);
+        }
+      }
+      return filtered;
+    } catch (e, stack) {
+      developer.log('Error fetching wrong question ids: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      return [];
+    }
+  }
+
+  /// Get wrong question IDs filtered by any of [partNumbers].
+  Future<List<String>> getWrongQuestionIdsByPartNumbers({
+    required List<int> partNumbers,
+    int limit = 100,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      final rows = await _client
+          .from('wrong_questions')
+          .select('question_id, last_answered_at')
+          .eq('user_id', userId)
+          .order('last_answered_at', ascending: false)
+          .limit(limit) as List<dynamic>;
+
+      final orderedIds = rows.map((r) => r['question_id'] as String).toList();
+      if (orderedIds.isEmpty) return [];
+
+      final questions = await _client
+          .from('questions')
+          .select('id, part_id')
+          .inFilter('id', orderedIds) as List<dynamic>;
+      if (questions.isEmpty) return [];
+
+      final partIdByQuestionId = <String, String>{};
+      final partIds = <String>{};
+      for (final q in questions) {
+        final qid = q['id'] as String;
+        final pid = q['part_id'] as String;
+        partIdByQuestionId[qid] = pid;
+        partIds.add(pid);
+      }
+
+      final parts = await _client
+          .from('test_parts')
+          .select('id, part_number')
+          .inFilter('id', partIds.toList()) as List<dynamic>;
+      final numberByPartId = <String, int>{};
+      for (final p in parts) {
+        numberByPartId[p['id'] as String] = (p['part_number'] as num).toInt();
+      }
+
+      final allowed = partNumbers.toSet();
+      final filtered = <String>[];
+      for (final qid in orderedIds) {
+        final pid = partIdByQuestionId[qid];
+        if (pid == null) continue;
+        if (allowed.contains(numberByPartId[pid])) {
+          filtered.add(qid);
+        }
+      }
+      return filtered;
+    } catch (e, stack) {
+      developer.log('Error fetching wrong question ids by part numbers: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+      return [];
+    }
+  }
+
+  /// Save per-question answer history and upsert wrong questions (deduplicated).
+  Future<void> saveListeningPracticeTracking({
+    required List<QuestionModel> questions,
+    required Map<int, int> userAnswers,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final now = DateTime.now().toIso8601String();
+      final historyRows = <Map<String, dynamic>>[];
+      final wrongSelections = <String, String?>{};
+
+      for (int i = 0; i < questions.length; i++) {
+        final q = questions[i];
+        final selectedIdx = userAnswers[i];
+        if (selectedIdx == null || selectedIdx < 0 || selectedIdx >= q.options.length) {
+          continue;
+        }
+
+        final option = q.options[selectedIdx];
+        historyRows.add({
+          'user_id': userId,
+          'question_id': q.id,
+          'selected_option_id': option.id,
+          'is_correct': option.isCorrect,
+          'answered_at': now,
+        });
+
+        if (!option.isCorrect) {
+          wrongSelections[q.id] = option.id;
+        }
+      }
+
+      if (historyRows.isNotEmpty) {
+        await _client.from('listening_answer_history').insert(historyRows);
+      }
+
+      if (wrongSelections.isEmpty) return;
+
+      final wrongIds = wrongSelections.keys.toList();
+      final existingRows = await _client
+          .from('wrong_questions')
+          .select('question_id, wrong_count')
+          .eq('user_id', userId)
+          .inFilter('question_id', wrongIds) as List<dynamic>;
+      final existingCountByQuestion = <String, int>{
+        for (final row in existingRows)
+          row['question_id'] as String: (row['wrong_count'] as num?)?.toInt() ?? 0,
+      };
+
+      final upsertRows = wrongIds.map((questionId) {
+        final previous = existingCountByQuestion[questionId] ?? 0;
+        return {
+          'user_id': userId,
+          'question_id': questionId,
+          'last_selected_option_id': wrongSelections[questionId],
+          'wrong_count': previous + 1,
+          'last_answered_at': now,
+        };
+      }).toList();
+
+      await _client.from('wrong_questions').upsert(
+            upsertRows,
+            onConflict: 'user_id,question_id',
+          );
+    } catch (e, stack) {
+      developer.log('Error saving listening practice tracking: $e',
+          name: 'QuestionRepo', error: e, stackTrace: stack);
+    }
+  }
+
   /// Submit a test attempt — saves attempt + all answers to Supabase
   /// Returns the attempt ID
   Future<String> submitAttempt({

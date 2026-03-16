@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/test_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
+
+const int _kFreeUnlockedExamCount = 3;
 
 class MinitestGrid extends ConsumerWidget {
   const MinitestGrid({super.key});
@@ -12,6 +15,7 @@ class MinitestGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final miniTestsAsync = ref.watch(miniTestsProvider);
+    final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -55,6 +59,7 @@ class MinitestGrid extends ConsumerWidget {
               if (tests.isEmpty) {
                 return _buildEmptyState();
               }
+              final isPremiumUser = isPremiumAsync.valueOrNull ?? false;
               return GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
@@ -67,7 +72,13 @@ class MinitestGrid extends ConsumerWidget {
                 itemCount: tests.length,
                 itemBuilder: (context, index) {
                   final test = tests[index];
-                  return _MiniTestCard(test: test);
+                  final lockedByFreeLimit =
+                      !isPremiumUser && index >= _kFreeUnlockedExamCount;
+                  final lockedByPremiumTag = !isPremiumUser && test.isPremium;
+                  return _MiniTestCard(
+                    test: test,
+                    isLocked: lockedByFreeLimit || lockedByPremiumTag,
+                  );
                 },
               );
             },
@@ -89,11 +100,7 @@ class MinitestGrid extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.timer_outlined,
-            size: 48,
-            color: AppColors.textSlate400,
-          ),
+          Icon(Icons.timer_outlined, size: 48, color: AppColors.textSlate400),
           const SizedBox(height: 12),
           Text(
             'Chưa có minitest nào',
@@ -119,8 +126,9 @@ class MinitestGrid extends ConsumerWidget {
 
 class _MiniTestCard extends StatelessWidget {
   final TestModel test;
+  final bool isLocked;
 
-  const _MiniTestCard({required this.test});
+  const _MiniTestCard({required this.test, required this.isLocked});
 
   @override
   Widget build(BuildContext context) {
@@ -141,18 +149,27 @@ class _MiniTestCard extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () => context.push('/exam/test-start', extra: {
-            'testId': test.id,
-            'testTitle': test.title,
-            'duration': test.duration,
-            'totalQuestions': test.totalQuestions,
-          }),
+          onTap: () {
+            if (isLocked) {
+              context.push('/upgrade');
+              return;
+            }
+            context.push(
+              '/exam/test-start',
+              extra: {
+                'testId': test.id,
+                'testTitle': test.title,
+                'duration': test.duration,
+                'totalQuestions': test.totalQuestions,
+              },
+            );
+          },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Stack(
               children: [
-                if (test.isPremium)
+                if (isLocked)
                   Positioned(
                     top: 0,
                     right: 0,

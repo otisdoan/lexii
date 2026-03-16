@@ -46,3 +46,24 @@ final questionsByPartIdProvider =
   return repo.getQuestionsByPartId(partId);
 });
 
+/// Provider for listening questions by part number (1..4) across all full tests.
+final questionsByListeningPartNumberProvider =
+    FutureProvider.family<List<QuestionModel>, int>((ref, partNumber) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getQuestionsByListeningPartNumber(partNumber);
+});
+
+/// Provider for reading questions by part number (5..7) across all full tests.
+final questionsByReadingPartNumberProvider =
+    FutureProvider.family<List<QuestionModel>, int>((ref, partNumber) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getQuestionsByReadingPartNumber(partNumber);
+});
+
+/// Provider for questions by explicit question IDs.
+final questionsByIdsProvider =
+    FutureProvider.family<List<QuestionModel>, List<String>>((ref, ids) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getQuestionsByIds(ids);
+});
+

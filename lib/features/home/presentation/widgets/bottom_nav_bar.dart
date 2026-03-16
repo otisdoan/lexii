@@ -42,7 +42,7 @@ class BottomNavBar extends StatelessWidget {
               ),
               _NavItem(
                 icon: Icons.workspace_premium,
-                label: 'Lộ trình',
+                label: 'Lý thuyết',
                 isActive: currentIndex == 2,
                 onTap: () => onTap(2),
               ),

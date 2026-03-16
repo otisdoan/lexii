@@ -5,19 +5,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
+import 'package:lexii/features/practice/presentation/providers/practice_providers.dart';
 
 class ReadingQuestionPage extends ConsumerStatefulWidget {
   final String testId;
   final String partId;
+  final int? partNumber;
   final String partTitle;
   final int? questionLimit;
+  final List<String>? questionIds;
+  final bool randomizeQuestions;
 
   const ReadingQuestionPage({
     super.key,
     required this.testId,
     required this.partId,
+    this.partNumber,
     required this.partTitle,
     this.questionLimit,
+    this.questionIds,
+    this.randomizeQuestions = false,
   });
 
   @override
@@ -32,7 +39,11 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = ref.watch(questionsByPartIdProvider(widget.partId));
+    final questionsAsync = widget.questionIds != null && widget.questionIds!.isNotEmpty
+        ? ref.watch(questionsByIdsProvider(widget.questionIds!))
+        : (widget.partNumber != null
+              ? ref.watch(questionsByReadingPartNumberProvider(widget.partNumber!))
+              : ref.watch(questionsByPartIdProvider(widget.partId)));
 
     return PopScope(
       canPop: false,
@@ -52,10 +63,14 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
             ),
           ),
           data: (allQuestions) {
+            final questionsPool = List<QuestionModel>.from(allQuestions);
+            if (widget.randomizeQuestions) {
+              questionsPool.shuffle();
+            }
             final questions = widget.questionLimit != null &&
-                    widget.questionLimit! < allQuestions.length
-                ? allQuestions.sublist(0, widget.questionLimit!)
-                : allQuestions;
+                    widget.questionLimit! < questionsPool.length
+                ? questionsPool.sublist(0, widget.questionLimit!)
+                : questionsPool;
 
             if (questions.isEmpty) {
               return _buildEmpty(context);
@@ -64,7 +79,12 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
             final q = questions[_currentIndex];
             return Column(
               children: [
-                _buildHeader(context, _currentIndex + 1, questions.length),
+                _buildHeader(
+                  context,
+                  _currentIndex + 1,
+                  questions.length,
+                  questions,
+                ),
                 _buildProgressBar(_currentIndex + 1, questions.length),
                 Expanded(
                   child: SingleChildScrollView(
@@ -72,6 +92,8 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildQuestionMeta(_currentIndex + 1, questions.length),
+                        const SizedBox(height: 12),
                         if (q.passageContent != null) ...[
                           _buildPassageSection(q.passageContent!),
                           const SizedBox(height: 20),
@@ -97,16 +119,25 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
 
   // ── Header ────────────────────────────────────────────────────
 
-  Widget _buildHeader(BuildContext context, int current, int total) {
+  Widget _buildHeader(
+    BuildContext context,
+    int current,
+    int total,
+    List<QuestionModel> questions,
+  ) {
     return Container(
-      color: AppColors.primary,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: AppColors.borderSlate100),
+        ),
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
           child: Row(
             children: [
-              // Back
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -114,48 +145,60 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
                   borderRadius: BorderRadius.circular(9999),
                   child: const Padding(
                     padding: EdgeInsets.all(8),
-                    child:
-                        Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: AppColors.textSlate800,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Câu $current/$total',
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSlate800,
+                ),
+              ),
+              const Spacer(),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showOverviewSheet(questions),
+                  borderRadius: BorderRadius.circular(9999),
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.grid_view_rounded,
+                      size: 20,
+                      color: AppColors.textSlate400,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 4),
-              // "Câu X"
-              Text(
-                'Câu $current',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Action icons
-              Icon(Icons.report_problem_outlined,
-                  color: Colors.white.withValues(alpha: 0.8), size: 20),
-              const SizedBox(width: 8),
-              Icon(Icons.settings_outlined,
-                  color: Colors.white.withValues(alpha: 0.8), size: 20),
-              const SizedBox(width: 8),
-              Icon(Icons.favorite_border,
-                  color: Colors.white.withValues(alpha: 0.8), size: 20),
-              const Spacer(),
-              // "Giải thích" button
-              TextButton(
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                child: Text(
-                  'Giải thích',
-                  style: GoogleFonts.lexend(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _submitting ? null : () => _submit(questions),
+                  borderRadius: BorderRadius.circular(9999),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9999),
+                    ),
+                    child: Text(
+                      'Nộp bài',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -168,15 +211,52 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
 
   Widget _buildProgressBar(int current, int total) {
     return Container(
-      color: AppColors.primary,
-      height: 6,
+      color: Colors.white,
+      height: 4,
       child: LinearProgressIndicator(
         value: total > 0 ? current / total : 0,
-        backgroundColor: Colors.white.withValues(alpha: 0.3),
-        valueColor: const AlwaysStoppedAnimation<Color>(
-          Color(0xCCFFFFFF),
-        ),
-        minHeight: 6,
+        backgroundColor: AppColors.slate200,
+        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+        minHeight: 4,
+      ),
+    );
+  }
+
+  Widget _buildQuestionMeta(int current, int total) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderSlate100),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Câu $current',
+              style: GoogleFonts.lexend(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '$current/$total',
+            style: GoogleFonts.lexend(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSlate500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -352,7 +432,6 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
     int currentIndex,
   ) {
     final isLast = currentIndex == questions.length - 1;
-    final hasAnswer = _answers[currentIndex] != null;
 
     return Container(
       padding: EdgeInsets.only(
@@ -371,43 +450,290 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: hasAnswer && !_submitting
-              ? () => isLast
-                  ? _submit(questions)
-                  : setState(() => _currentIndex++)
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.textSlate300,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
-            ),
-            elevation: 4,
-            shadowColor: AppColors.primary.withValues(alpha: 0.4),
-          ),
-          child: _submitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : Text(
-                  isLast ? 'Nộp bài' : 'Tiếp tục',
-                  style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _currentIndex > 0 && !_submitting
+                  ? () => setState(() => _currentIndex--)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSlate600,
+                side: const BorderSide(color: AppColors.borderSlate200),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
                 ),
+              ),
+              child: Text(
+                'Câu trước',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: !_submitting
+                  ? () => isLast
+                      ? _submit(questions)
+                      : setState(() => _currentIndex++)
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.textSlate300,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                elevation: 4,
+                shadowColor: AppColors.primary.withValues(alpha: 0.4),
+              ),
+              child: _submitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      isLast ? 'Nộp bài' : 'Câu tiếp',
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOverviewSheet(List<QuestionModel> questions) {
+    final answered = _answers.length;
+    final unanswered = questions.length - answered;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.72,
+          minChildSize: 0.45,
+          maxChildSize: 0.92,
+          builder: (_, scrollCtrl) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 4),
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderSlate200,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Tổng quan bài làm',
+                          style: GoogleFonts.lexend(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSlate900,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: AppColors.textSlate400,
+                          ),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        _buildOverviewStat(AppColors.primary, '$answered', 'Đã làm'),
+                        const SizedBox(width: 12),
+                        _buildOverviewStat(AppColors.orange500, '$unanswered', 'Chưa làm'),
+                        const SizedBox(width: 12),
+                        _buildOverviewStat(AppColors.textSlate500, '${questions.length}', 'Tổng'),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppColors.borderSlate100),
+                  Expanded(
+                    child: GridView.builder(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 6,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: questions.length,
+                      itemBuilder: (_, i) {
+                        final isAnswered = _answers.containsKey(i);
+                        final isCurrent = i == _currentIndex;
+
+                        Color bg;
+                        Color fg;
+                        BoxBorder? border;
+
+                        if (isCurrent) {
+                          bg = AppColors.primary;
+                          fg = Colors.white;
+                          border = Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            width: 3,
+                          );
+                        } else if (isAnswered) {
+                          bg = AppColors.primary.withValues(alpha: 0.12);
+                          fg = AppColors.primary;
+                        } else {
+                          bg = AppColors.slate100;
+                          fg = AppColors.textSlate400;
+                        }
+
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            setState(() => _currentIndex = i);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            decoration: BoxDecoration(
+                              color: bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: border,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${i + 1}',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: isCurrent
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: fg,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildLegendDot(AppColors.primary, 'Đang làm'),
+                          const SizedBox(width: 20),
+                          _buildLegendDot(
+                            AppColors.primary.withValues(alpha: 0.12),
+                            'Đã làm',
+                          ),
+                          const SizedBox(width: 20),
+                          _buildLegendDot(AppColors.slate100, 'Chưa làm'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOverviewStat(Color color, String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.lexend(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLegendDot(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.lexend(
+            fontSize: 11,
+            color: AppColors.textSlate500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -433,6 +759,12 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
           questions: questions,
           userAnswers: _answers,
         );
+        await repo.saveListeningPracticeTracking(
+          questions: questions,
+          userAnswers: _answers,
+        );
+        ref.invalidate(readingPracticePartsProvider);
+        ref.invalidate(wrongReadingQuestionIdsProvider);
       } catch (_) {
         // Non-fatal — still show result
       }
@@ -442,9 +774,11 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
         'testId': widget.testId,
         'partId': widget.partId,
         'partTitle': widget.partTitle,
+        'section': 'reading',
         'correct': correct,
         'total': questions.length,
         'userAnswers': Map<int, int>.from(_answers),
+        'questions': questions,
       });
     } finally {
       if (mounted) setState(() => _submitting = false);

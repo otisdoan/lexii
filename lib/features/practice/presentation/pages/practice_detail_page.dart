@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/practice/data/repositories/practice_repository.dart';
 import 'package:lexii/features/practice/domain/entities/practice_part.dart';
@@ -52,6 +53,7 @@ class _ReadingPracticePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final partsAsync = ref.watch(readingPracticePartsProvider);
+    final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -66,7 +68,13 @@ class _ReadingPracticePage extends ConsumerWidget {
               error: (e, _) => _buildError(e.toString()),
               data: (parts) {
                 if (parts == null) return _buildNoTests();
-                return _buildReadingContent(context, ref, parts);
+                final isPremiumUser = isPremiumAsync.valueOrNull ?? false;
+                return _buildReadingContent(
+                  context,
+                  ref,
+                  parts,
+                  isPremiumUser: isPremiumUser,
+                );
               },
             ),
           ),
@@ -78,13 +86,17 @@ class _ReadingPracticePage extends ConsumerWidget {
   Widget _buildReadingContent(
     BuildContext context,
     WidgetRef ref,
-    List<PracticePartData> parts,
-  ) {
+    List<PracticePartData> parts, {
+    required bool isPremiumUser,
+  }) {
+    final wrongIdsAsync = ref.watch(wrongReadingQuestionIdsProvider);
+    final wrongCount = wrongIdsAsync.valueOrNull?.length ?? 0;
     final totalQuestions = parts.fold(0, (s, p) => s + p.totalQuestions);
     final totalAnswered = parts.fold(0, (s, p) => s + p.totalAnswered);
     final correctAnswers = parts.fold(0, (s, p) => s + p.correctAnswers);
-    final progressPercent =
-        totalQuestions > 0 ? correctAnswers / totalQuestions * 100 : 0.0;
+    final progressPercent = totalQuestions > 0
+        ? correctAnswers / totalQuestions * 100
+        : 0.0;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -103,7 +115,39 @@ class _ReadingPracticePage extends ConsumerWidget {
               progressPercent: progressPercent,
             ),
             const SizedBox(height: 20),
-            const MistakePracticeCard(),
+            MistakePracticeCard(
+              subtitle: 'Tổng số câu sai: $wrongCount',
+              onTap: () async {
+                final wrongIds =
+                    await ref.read(wrongReadingQuestionIdsProvider.future);
+                if (wrongIds.isEmpty) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Bạn chưa có câu sai để luyện lại.',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            color: Colors.white,
+                          ),
+                        ),
+                        backgroundColor: AppColors.primary,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                  return;
+                }
+
+                if (!context.mounted) return;
+                context.push('/practice/reading-question', extra: {
+                  'testId': parts.first.testId,
+                  'partTitle': 'Luyện tập câu sai',
+                  'questionIds': wrongIds,
+                  'randomizeQuestions': false,
+                });
+              },
+            ),
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -117,8 +161,11 @@ class _ReadingPracticePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ...parts.map(
-              (part) => Padding(
+            ...parts.asMap().entries.map((entry) {
+              final index = entry.key;
+              final part = entry.value;
+              final isLocked = part.isLocked || (!isPremiumUser && index > 0);
+              return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: PartListItem(
                   part: PracticePart(
@@ -129,14 +176,14 @@ class _ReadingPracticePage extends ConsumerWidget {
                     totalQuestions: part.totalQuestions,
                     correctAnswers: part.correctAnswers,
                     progressPercent: part.progressPercent,
-                    isLocked: part.isLocked,
+                    isLocked: isLocked,
                   ),
-                  onTap: part.isLocked
+                  onTap: isLocked
                       ? null
                       : () => context.push('/practice/part-intro', extra: part),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
@@ -144,18 +191,18 @@ class _ReadingPracticePage extends ConsumerWidget {
   }
 
   Widget _buildNoTests() => _buildErrorWidget(
-        Icons.library_books_outlined,
-        'Chưa có đề thi nào',
-        'Cần có ít nhất một đề Fulltest trong database\nđể bắt đầu luyện tập.',
-      );
+    Icons.library_books_outlined,
+    'Chưa có đề thi nào',
+    'Cần có ít nhất một đề Fulltest trong database\nđể bắt đầu luyện tập.',
+  );
 
   Widget _buildError(String message) => _buildErrorWidget(
-        Icons.error_outline,
-        'Lỗi tải dữ liệu',
-        message,
-        iconColor: const Color(0xFFDC2626),
-        titleColor: const Color(0xFFDC2626),
-      );
+    Icons.error_outline,
+    'Lỗi tải dữ liệu',
+    message,
+    iconColor: const Color(0xFFDC2626),
+    titleColor: const Color(0xFFDC2626),
+  );
 
   Widget _buildErrorWidget(
     IconData icon,
@@ -204,6 +251,7 @@ class _WritingPracticePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final partsAsync = ref.watch(writingPartsProvider);
+    final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -221,7 +269,15 @@ class _WritingPracticePage extends ConsumerWidget {
                   style: GoogleFonts.lexend(color: AppColors.textSlate500),
                 ),
               ),
-              data: (parts) => _buildWritingContent(context, ref, parts),
+              data: (parts) {
+                final isPremiumUser = isPremiumAsync.valueOrNull ?? false;
+                return _buildWritingContent(
+                  context,
+                  ref,
+                  parts,
+                  isPremiumUser: isPremiumUser,
+                );
+              },
             ),
           ),
         ],
@@ -232,12 +288,14 @@ class _WritingPracticePage extends ConsumerWidget {
   Widget _buildWritingContent(
     BuildContext context,
     WidgetRef ref,
-    List<PracticePartData> parts,
-  ) {
+    List<PracticePartData> parts, {
+    required bool isPremiumUser,
+  }) {
     final totalQuestions = parts.fold(0, (s, p) => s + p.totalQuestions);
     final totalAnswered = parts.fold(0, (s, p) => s + p.totalAnswered);
-    final progressPercent =
-        totalQuestions > 0 ? totalAnswered / totalQuestions * 100 : 0.0;
+    final progressPercent = totalQuestions > 0
+        ? totalAnswered / totalQuestions * 100
+        : 0.0;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -270,8 +328,11 @@ class _WritingPracticePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ...parts.map(
-              (part) => Padding(
+            ...parts.asMap().entries.map((entry) {
+              final index = entry.key;
+              final part = entry.value;
+              final isLocked = part.isLocked || (!isPremiumUser && index > 0);
+              return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: PartListItem(
                   part: PracticePart(
@@ -282,14 +343,14 @@ class _WritingPracticePage extends ConsumerWidget {
                     totalQuestions: part.totalQuestions,
                     correctAnswers: 0,
                     progressPercent: part.progressPercent,
-                    isLocked: part.isLocked,
+                    isLocked: isLocked,
                   ),
-                  onTap: part.isLocked
+                  onTap: isLocked
                       ? null
                       : () => context.push('/practice/part-intro', extra: part),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
@@ -304,6 +365,7 @@ class _ListeningPracticePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final partsAsync = ref.watch(listeningPracticePartsProvider);
+    final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -318,7 +380,13 @@ class _ListeningPracticePage extends ConsumerWidget {
               error: (e, _) => _buildError(e.toString()),
               data: (parts) {
                 if (parts == null) return _buildNoTests();
-                return _buildContent(context, ref, parts);
+                final isPremiumUser = isPremiumAsync.valueOrNull ?? false;
+                return _buildContent(
+                  context,
+                  ref,
+                  parts,
+                  isPremiumUser: isPremiumUser,
+                );
               },
             ),
           ),
@@ -330,13 +398,17 @@ class _ListeningPracticePage extends ConsumerWidget {
   Widget _buildContent(
     BuildContext context,
     WidgetRef ref,
-    List<PracticePartData> parts,
-  ) {
+    List<PracticePartData> parts, {
+    required bool isPremiumUser,
+  }) {
+    final wrongIdsAsync = ref.watch(wrongListeningQuestionIdsProvider);
+    final wrongCount = wrongIdsAsync.valueOrNull?.length ?? 0;
     final totalQuestions = parts.fold(0, (s, p) => s + p.totalQuestions);
     final totalAnswered = parts.fold(0, (s, p) => s + p.totalAnswered);
     final correctAnswers = parts.fold(0, (s, p) => s + p.correctAnswers);
-    final progressPercent =
-        totalQuestions > 0 ? correctAnswers / totalQuestions * 100 : 0.0;
+    final progressPercent = totalQuestions > 0
+        ? correctAnswers / totalQuestions * 100
+        : 0.0;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -355,7 +427,40 @@ class _ListeningPracticePage extends ConsumerWidget {
               progressPercent: progressPercent,
             ),
             const SizedBox(height: 20),
-            const MistakePracticeCard(),
+            MistakePracticeCard(
+              subtitle: 'Tổng số câu sai: $wrongCount',
+              onTap: () async {
+                final wrongIds =
+                    await ref.read(wrongListeningQuestionIdsProvider.future);
+                if (wrongIds.isEmpty) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Bạn chưa có câu sai để luyện lại.',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            color: Colors.white,
+                          ),
+                        ),
+                        backgroundColor: AppColors.primary,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                  return;
+                }
+
+                if (!context.mounted) return;
+                context.push('/exam/question', extra: {
+                  'testId': parts.first.testId,
+                  'testTitle': 'Luyện tập câu sai',
+                  'isPracticeMode': true,
+                  'questionIds': wrongIds,
+                  'randomizeQuestions': false,
+                });
+              },
+            ),
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -369,8 +474,11 @@ class _ListeningPracticePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ...parts.map(
-              (part) => Padding(
+            ...parts.asMap().entries.map((entry) {
+              final index = entry.key;
+              final part = entry.value;
+              final isLocked = part.isLocked || (!isPremiumUser && index > 0);
+              return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: PartListItem(
                   part: PracticePart(
@@ -381,17 +489,14 @@ class _ListeningPracticePage extends ConsumerWidget {
                     totalQuestions: part.totalQuestions,
                     correctAnswers: part.correctAnswers,
                     progressPercent: part.progressPercent,
-                    isLocked: part.isLocked,
+                    isLocked: isLocked,
                   ),
-                  onTap: part.isLocked
+                  onTap: isLocked
                       ? null
-                      : () => context.push(
-                            '/practice/part-intro',
-                            extra: part,
-                          ),
+                      : () => context.push('/practice/part-intro', extra: part),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
@@ -405,8 +510,11 @@ class _ListeningPracticePage extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.library_books_outlined,
-                size: 64, color: AppColors.textSlate300),
+            const Icon(
+              Icons.library_books_outlined,
+              size: 64,
+              color: AppColors.textSlate300,
+            ),
             const SizedBox(height: 16),
             Text(
               'Chưa có đề thi nào',
@@ -439,8 +547,7 @@ class _ListeningPracticePage extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline,
-                size: 56, color: Color(0xFFDC2626)),
+            const Icon(Icons.error_outline, size: 56, color: Color(0xFFDC2626)),
             const SizedBox(height: 16),
             Text(
               'Lỗi tải dữ liệu',
@@ -467,13 +574,29 @@ class _ListeningPracticePage extends ConsumerWidget {
 }
 
 // ── Static page (Reading / Speaking / Writing) ────────────────
-class _StaticSkillPage extends StatelessWidget {
+class _StaticSkillPage extends ConsumerWidget {
   final SkillConfig config;
 
   const _StaticSkillPage({required this.config});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPremiumUser = ref.watch(isPremiumProvider).valueOrNull ?? false;
+    final displayParts = config.parts.asMap().entries.map((entry) {
+      final index = entry.key;
+      final part = entry.value;
+      return PracticePart(
+        title: part.title,
+        icon: part.icon,
+        iconBgColor: part.iconBgColor,
+        iconColor: part.iconColor,
+        totalQuestions: part.totalQuestions,
+        correctAnswers: part.correctAnswers,
+        progressPercent: part.progressPercent,
+        isLocked: part.isLocked || (!isPremiumUser && index > 0),
+      );
+    }).toList();
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: Column(
@@ -502,7 +625,7 @@ class _StaticSkillPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ...config.parts.map(
+                  ...displayParts.map(
                     (part) => Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: PartListItem(
@@ -571,8 +694,7 @@ Widget _buildAppBar(BuildContext context, String title) {
                 borderRadius: BorderRadius.circular(9999),
                 child: const Padding(
                   padding: EdgeInsets.all(8),
-                  child:
-                      Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                  child: Icon(Icons.arrow_back, color: Colors.white, size: 28),
                 ),
               ),
             ),

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/test_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 
 const int _kMaxGridItems = 6;
+const int _kFreeUnlockedExamCount = 3;
 
 class FulltestGrid extends ConsumerWidget {
   const FulltestGrid({super.key});
@@ -14,6 +16,7 @@ class FulltestGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fullTestsAsync = ref.watch(fullTestsProvider);
+    final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -34,7 +37,15 @@ class FulltestGrid extends ConsumerWidget {
               fullTestsAsync.maybeWhen(
                 data: (tests) => tests.length > _kMaxGridItems
                     ? GestureDetector(
-                        onTap: () => _showAllTests(context, tests),
+                        onTap: () {
+                          final isPremiumUser =
+                              isPremiumAsync.valueOrNull ?? false;
+                          _showAllTests(
+                            context,
+                            tests,
+                            isPremiumUser: isPremiumUser,
+                          );
+                        },
                         child: Text(
                           'Xem thêm (${tests.length})',
                           style: GoogleFonts.lexend(
@@ -63,6 +74,7 @@ class FulltestGrid extends ConsumerWidget {
               if (tests.isEmpty) {
                 return _buildEmptyState();
               }
+              final isPremiumUser = isPremiumAsync.valueOrNull ?? false;
               final displayed = tests.take(_kMaxGridItems).toList();
               return GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -75,7 +87,14 @@ class FulltestGrid extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: displayed.length,
                 itemBuilder: (context, index) {
-                  return _TestCard(test: displayed[index]);
+                  final test = displayed[index];
+                  final lockedByFreeLimit =
+                      !isPremiumUser && index >= _kFreeUnlockedExamCount;
+                  final lockedByPremiumTag = !isPremiumUser && test.isPremium;
+                  return _TestCard(
+                    test: test,
+                    isLocked: lockedByFreeLimit || lockedByPremiumTag,
+                  );
                 },
               );
             },
@@ -85,7 +104,11 @@ class FulltestGrid extends ConsumerWidget {
     );
   }
 
-  void _showAllTests(BuildContext context, List<TestModel> tests) {
+  void _showAllTests(
+    BuildContext context,
+    List<TestModel> tests, {
+    required bool isPremiumUser,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -129,7 +152,9 @@ class FulltestGrid extends ConsumerWidget {
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -154,7 +179,16 @@ class FulltestGrid extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   itemCount: tests.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (ctx, i) => _TestListTile(test: tests[i]),
+                  itemBuilder: (ctx, i) {
+                    final test = tests[i];
+                    final lockedByFreeLimit =
+                        !isPremiumUser && i >= _kFreeUnlockedExamCount;
+                    final lockedByPremiumTag = !isPremiumUser && test.isPremium;
+                    return _TestListTile(
+                      test: test,
+                      isLocked: lockedByFreeLimit || lockedByPremiumTag,
+                    );
+                  },
                 ),
               ),
             ],
@@ -239,7 +273,9 @@ class FulltestGrid extends ConsumerWidget {
 // ── List tile used in "Xem thêm" bottom sheet ──────────────
 class _TestListTile extends StatelessWidget {
   final TestModel test;
-  const _TestListTile({required this.test});
+  final bool isLocked;
+
+  const _TestListTile({required this.test, required this.isLocked});
 
   @override
   Widget build(BuildContext context) {
@@ -248,13 +284,21 @@ class _TestListTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: () {
+          if (isLocked) {
+            Navigator.of(context).pop();
+            context.push('/upgrade');
+            return;
+          }
           Navigator.of(context).pop(); // close sheet
-          context.push('/exam/test-start', extra: {
-            'testId': test.id,
-            'testTitle': test.title,
-            'duration': test.duration,
-            'totalQuestions': test.totalQuestions,
-          });
+          context.push(
+            '/exam/test-start',
+            extra: {
+              'testId': test.id,
+              'testTitle': test.title,
+              'duration': test.duration,
+              'totalQuestions': test.totalQuestions,
+            },
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Container(
@@ -272,8 +316,11 @@ class _TestListTile extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: AppColors.primary.withValues(alpha: 0.1),
                 ),
-                child: const Icon(Icons.description,
-                    size: 24, color: AppColors.primary),
+                child: const Icon(
+                  Icons.description,
+                  size: 24,
+                  color: AppColors.primary,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -301,13 +348,16 @@ class _TestListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (test.isPremium)
+              if (isLocked)
                 const Padding(
                   padding: EdgeInsets.only(right: 8),
                   child: Icon(Icons.lock, size: 18, color: AppColors.amber600),
                 ),
-              const Icon(Icons.arrow_forward_ios,
-                  size: 16, color: AppColors.textSlate400),
+              const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: AppColors.textSlate400,
+              ),
             ],
           ),
         ),
@@ -319,8 +369,9 @@ class _TestListTile extends StatelessWidget {
 // ── Grid card (unchanged layout) ────────────────────────────
 class _TestCard extends StatelessWidget {
   final TestModel test;
+  final bool isLocked;
 
-  const _TestCard({required this.test});
+  const _TestCard({required this.test, required this.isLocked});
 
   @override
   Widget build(BuildContext context) {
@@ -341,23 +392,35 @@ class _TestCard extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () => context.push('/exam/test-start', extra: {
-            'testId': test.id,
-            'testTitle': test.title,
-            'duration': test.duration,
-            'totalQuestions': test.totalQuestions,
-          }),
+          onTap: () {
+            if (isLocked) {
+              context.push('/upgrade');
+              return;
+            }
+            context.push(
+              '/exam/test-start',
+              extra: {
+                'testId': test.id,
+                'testTitle': test.title,
+                'duration': test.duration,
+                'totalQuestions': test.totalQuestions,
+              },
+            );
+          },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Stack(
               children: [
-                if (test.isPremium)
+                if (isLocked)
                   Positioned(
                     top: 0,
                     right: 0,
-                    child: Icon(Icons.lock,
-                        size: 20, color: AppColors.amber600),
+                    child: Icon(
+                      Icons.lock,
+                      size: 20,
+                      color: AppColors.amber600,
+                    ),
                   ),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -370,8 +433,11 @@ class _TestCard extends StatelessWidget {
                         color: AppColors.primary.withValues(alpha: 0.1),
                       ),
                       child: const Center(
-                        child: Icon(Icons.description,
-                            size: 28, color: AppColors.primary),
+                        child: Icon(
+                          Icons.description,
+                          size: 28,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),

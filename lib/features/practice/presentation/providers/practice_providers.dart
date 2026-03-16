@@ -13,37 +13,37 @@ final writingRepositoryProvider = Provider<WritingRepository>((ref) {
   return WritingRepository();
 });
 
-/// Listening parts for a given testId, enriched with user progress.
-final listeningPartsProvider =
-    FutureProvider.family<List<PracticePartData>, String>((ref, testId) async {
-  final repo = ref.watch(practiceRepositoryProvider);
-  return repo.getListeningParts(testId);
-});
-
-/// Resolves the first available full-test ID, then delegates to
-/// [listeningPartsProvider]. Returns null if no tests exist yet.
+/// Listening practice parts (1..4) aggregated from all full tests.
 final listeningPracticePartsProvider =
     FutureProvider<List<PracticePartData>?>((ref) async {
-  final tests = await ref.watch(fullTestsProvider.future);
-  if (tests.isEmpty) return null;
-  final testId = tests.first.id;
-  return ref.watch(listeningPartsProvider(testId).future);
-});
-
-/// Reading parts (5–7) for a given testId.
-final readingPartsProvider =
-    FutureProvider.family<List<PracticePartData>, String>((ref, testId) async {
   final repo = ref.watch(practiceRepositoryProvider);
-  return repo.getReadingParts(testId);
+  final parts = await repo.getListeningParts();
+  if (parts.isEmpty) return null;
+  return parts;
 });
 
-/// Resolves the first available full-test ID for reading practice.
+/// Wrong listening question IDs for the current user.
+final wrongListeningQuestionIdsProvider = FutureProvider<List<String>>((ref) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getWrongQuestionIds(partNumber: null, limit: 200);
+});
+
+/// Wrong reading question IDs (Part 5-7) for the current user.
+final wrongReadingQuestionIdsProvider = FutureProvider<List<String>>((ref) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getWrongQuestionIdsByPartNumbers(
+    partNumbers: const [5, 6, 7],
+    limit: 200,
+  );
+});
+
+/// Reading parts (5–7) aggregated from all full tests.
 final readingPracticePartsProvider =
     FutureProvider<List<PracticePartData>?>((ref) async {
-  final tests = await ref.watch(fullTestsProvider.future);
-  if (tests.isEmpty) return null;
-  final testId = tests.first.id;
-  return ref.watch(readingPartsProvider(testId).future);
+  final repo = ref.watch(practiceRepositoryProvider);
+  final parts = await repo.getReadingParts();
+  if (parts.isEmpty) return null;
+  return parts;
 });
 
 /// Writing parts (1–3) from writing_prompts table.

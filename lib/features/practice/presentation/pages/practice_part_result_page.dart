@@ -10,24 +10,44 @@ class PracticePartResultPage extends ConsumerWidget {
   final String testId;
   final String partId;
   final String partTitle;
+  final String section;
   final int correct;
   final int total;
   final Map<int, int> userAnswers;
+  final List<QuestionModel>? questionsOverride;
 
   const PracticePartResultPage({
     super.key,
     required this.testId,
     required this.partId,
     required this.partTitle,
+    this.section = 'listening',
     required this.correct,
     required this.total,
     required this.userAnswers,
+    this.questionsOverride,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final questionsAsync = ref.watch(questionsByPartIdProvider(partId));
     final percent = total > 0 ? (correct / total * 100).round() : 0;
+
+    if (questionsOverride != null) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        body: Column(
+          children: [
+            _buildAppBar(context),
+            Expanded(
+              child: _buildBody(context, percent, questionsOverride!),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _buildBottomBar(context),
+      );
+    }
+
+    final questionsAsync = ref.watch(questionsByPartIdProvider(partId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -37,7 +57,7 @@ class PracticePartResultPage extends ConsumerWidget {
           Expanded(
             child: questionsAsync.when(
               loading: () => _buildBody(context, percent, []),
-              error: (_, __) => _buildBody(context, percent, []),
+              error: (_, _) => _buildBody(context, percent, []),
               data: (questions) => _buildBody(context, percent, questions),
             ),
           ),
@@ -353,41 +373,42 @@ class PracticePartResultPage extends ConsumerWidget {
             ...wrongItems.take(5).map(
                   (item) => _buildWrongItem(context, item),
                 ),
-          // View-all button
-          Material(
-            color: const Color(0xFFFFFBEB),
-            child: InkWell(
-              onTap: () => context.push('/exam/answer-review', extra: {
-                'testId': testId,
-                'testTitle': partTitle,
-                'userAnswers': userAnswers,
-                'section': 'listening',
-                'partId': partId,
-              }),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Xem tất cả câu trả lời',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+          if (questions.isNotEmpty)
+            Material(
+              color: const Color(0xFFFFFBEB),
+              child: InkWell(
+                onTap: () => context.push('/exam/answer-review', extra: {
+                  'testId': testId,
+                  'testTitle': partTitle,
+                  'userAnswers': userAnswers,
+                  'section': section,
+                  'partId': partId.isNotEmpty ? partId : null,
+                  'questionIds': questions.map((q) => q.id).toList(),
+                }),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Xem tất cả câu trả lời',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.amber600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
                         color: AppColors.amber600,
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: AppColors.amber600,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -400,13 +421,15 @@ class PracticePartResultPage extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.push('/exam/answer-detail', extra: {
-          'testId': testId,
-          'testTitle': partTitle,
-          'questionIndex': item.questionIndex,
-          'userAnswers': userAnswers,
-          'partId': partId,
-        }),
+        onTap: partId.isEmpty
+            ? null
+            : () => context.push('/exam/answer-detail', extra: {
+                  'testId': testId,
+                  'testTitle': partTitle,
+                  'questionIndex': item.questionIndex,
+                  'userAnswers': userAnswers,
+                  'partId': partId,
+                }),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: const BoxDecoration(

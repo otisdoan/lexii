@@ -4,8 +4,9 @@ import 'package:lexii/core/theme/app_colors.dart';
 
 class MistakePracticeCard extends StatelessWidget {
   final VoidCallback? onTap;
+  final String? subtitle;
 
-  const MistakePracticeCard({super.key, this.onTap});
+  const MistakePracticeCard({super.key, this.onTap, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +72,7 @@ class MistakePracticeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Ôn lại những lỗi đã gặp',
+                      subtitle ?? 'Ôn lại những lỗi đã gặp',
                       style: GoogleFonts.lexend(
                         fontSize: 12,
                         color: AppColors.textSlate500,

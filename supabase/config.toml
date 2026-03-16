@@ -1,0 +1,8 @@
+[functions.create-payos-payment]
+verify_jwt = false
+
+[functions.payos-webhook]
+verify_jwt = false
+
+[functions.confirm-payment]
+verify_jwt = false

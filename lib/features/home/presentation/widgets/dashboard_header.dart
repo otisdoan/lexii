@@ -8,12 +8,14 @@ class DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.fromLTRB(16, topPadding + 12, 16, 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: AppColors.primary,
         border: Border(
-          bottom: BorderSide(color: AppColors.borderSlate100),
+          bottom: BorderSide(color: AppColors.primaryDark.withValues(alpha: 0.35)),
         ),
       ),
       child: Row(
@@ -25,7 +27,7 @@ class DashboardHeader extends StatelessWidget {
             style: GoogleFonts.lexend(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: AppColors.textSlate800,
+              color: Colors.white,
             ),
           ),
           Material(
@@ -40,7 +42,7 @@ class DashboardHeader extends StatelessWidget {
                 child: const Icon(
                   Icons.tune,
                   size: 24,
-                  color: AppColors.textSlate600,
+                  color: Colors.white,
                 ),
               ),
             ),

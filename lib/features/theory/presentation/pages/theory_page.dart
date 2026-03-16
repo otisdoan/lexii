@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
+import 'package:lexii/features/home/presentation/widgets/bottom_nav_bar.dart';
 import 'package:lexii/features/theory/data/models/theory_models.dart';
 import 'package:lexii/features/theory/presentation/providers/theory_providers.dart';
 
@@ -36,8 +38,12 @@ class _TheoryPageState extends ConsumerState<TheoryPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: SafeArea(
-        bottom: false,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
         child: Column(
           children: [
             // ── Header ──────────────────────────────────────────────────
@@ -57,7 +63,30 @@ class _TheoryPageState extends ConsumerState<TheoryPage>
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: 2,
+        onTap: (index) => _onNavTap(context, index),
+      ),
     );
+  }
+
+  void _onNavTap(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        context.go('/home');
+        return;
+      case 1:
+        context.go('/exam/mock-test');
+        return;
+      case 2:
+        return;
+      case 3:
+        context.go('/upgrade');
+        return;
+      case 4:
+        context.go('/settings');
+        return;
+    }
   }
 }
 
@@ -70,17 +99,25 @@ class _AppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
     return Column(
       children: [
         // Title row
         Container(
           color: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: EdgeInsets.fromLTRB(4, topPadding + 4, 4, 4),
           child: Row(
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                onPressed: () => context.pop(),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                    return;
+                  }
+                  context.go('/home');
+                },
               ),
               Expanded(
                 child: Center(

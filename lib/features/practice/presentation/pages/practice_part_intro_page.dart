@@ -32,11 +32,15 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
       if (widget.partData.questionType == 'free_text') return [5, 10];
       return [0];
     }
-    final opts = <int>{total};
-    if (total >= 30) opts.add(20);
-    if (total >= 20) opts.add(10);
-    if (total >= 10) opts.add(5);
-    return opts.toList()..sort();
+    final opts = <int>[];
+    for (int n = 5; n <= total; n += 5) {
+      opts.add(n);
+    }
+    // Keep full-length practice available when total is not divisible by 5.
+    if (opts.isEmpty || opts.last != total) {
+      opts.add(total);
+    }
+    return opts;
   }
 
   static String _instructionForPart(PracticePartData part) {
@@ -340,8 +344,8 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    height: 30,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: AppColors.borderSlate200),
@@ -351,8 +355,9 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                       child: DropdownButton<int>(
                         value: safeCount,
                         isDense: true,
+                        menuMaxHeight: 220,
                         style: GoogleFonts.lexend(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textSlate800,
                         ),
@@ -419,9 +424,10 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                         // Reading
                         context.push('/practice/reading-question', extra: {
                           'testId': part.testId,
-                          'partId': part.testPartId,
+                          'partNumber': part.partNumber,
                           'partTitle': part.title,
                           'questionLimit': safeCount,
+                          'randomizeQuestions': false,
                         });
                       } else {
                         // Listening (default)
@@ -429,8 +435,10 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                           'testId': part.testId,
                           'testTitle': part.title,
                           'partId': part.testPartId,
+                          'partNumber': part.partNumber,
                           'isPracticeMode': true,
                           'questionLimit': safeCount,
+                          'randomizeQuestions': false,
                         });
                       }
                     }

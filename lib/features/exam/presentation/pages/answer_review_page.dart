@@ -13,6 +13,8 @@ class AnswerReviewPage extends ConsumerStatefulWidget {
   final String section; // 'listening' or 'reading'
   /// When set, loads only this part's questions (practice mode).
   final String? partId;
+  /// When set, loads explicit question IDs (practice mode without partId).
+  final List<String>? questionIds;
 
   const AnswerReviewPage({
     super.key,
@@ -21,6 +23,7 @@ class AnswerReviewPage extends ConsumerStatefulWidget {
     this.userAnswers = const {},
     this.section = 'listening',
     this.partId,
+    this.questionIds,
   });
 
   @override
@@ -50,7 +53,9 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = widget.partId != null
+    final questionsAsync = widget.questionIds != null && widget.questionIds!.isNotEmpty
+      ? ref.watch(questionsByIdsProvider(widget.questionIds!))
+      : widget.partId != null
         ? ref.watch(questionsByPartIdProvider(widget.partId!))
         : ref.watch(questionsByTestIdProvider(widget.testId));
 
@@ -204,6 +209,14 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
 
   Widget _buildQuestionList(
       BuildContext context, List<QuestionModel> allQuestions, String section) {
+    final isPracticeScoped =
+        widget.partId != null ||
+        (widget.questionIds != null && widget.questionIds!.isNotEmpty);
+
+    if (isPracticeScoped && section != widget.section) {
+      return const SizedBox.shrink();
+    }
+
     // Determine which parts belong to this section
     final isListening = section == 'listening';
 
@@ -216,9 +229,11 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
 
     // Split by section (first 4 parts = listening, rest = reading)
     final allPartIds = partGroups.keys.toList();
-    final sectionPartIds = isListening
+    final sectionPartIds = isPracticeScoped
+      ? allPartIds
+      : (isListening
         ? allPartIds.take(4.clamp(0, allPartIds.length)).toList()
-        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList();
+        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList());
 
     final partNames = isListening
         ? [

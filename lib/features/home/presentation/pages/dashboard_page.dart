@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lexii/features/home/presentation/widgets/dashboard_header.dart';
 import 'package:lexii/features/home/presentation/widgets/promo_banner.dart';
@@ -21,20 +22,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onNavTap(int index) {
     if (index == 1) {
-      // Thi tab → navigate to Mock Test page
-      context.push('/exam/mock-test');
+      context.go('/exam/mock-test');
       return;
     }
     if (index == 2) {
-      context.push('/theory');
+      context.go('/theory');
       return;
     }
     if (index == 3) {
-      context.push('/upgrade');
+      context.go('/upgrade');
       return;
     }
     if (index == 4) {
-      context.push('/settings');
+      context.go('/settings');
       return;
     }
     setState(() => _currentNavIndex = index);
@@ -44,8 +44,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
         child: Column(
           children: [
             const DashboardHeader(),

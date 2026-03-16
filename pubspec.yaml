@@ -36,6 +36,9 @@ dependencies:
   # Architecture
   dartz: ^0.10.1
   equatable: ^2.0.7
+  url_launcher: ^6.3.1
+  app_links: ^6.4.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

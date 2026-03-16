@@ -17,13 +17,16 @@ import 'package:lexii/features/exam/presentation/pages/mock_test_page.dart';
 import 'package:lexii/features/exam/presentation/pages/test_start_page.dart';
 import 'package:lexii/features/exam/presentation/pages/part_intro_page.dart';
 import 'package:lexii/features/exam/presentation/pages/listening_question_page.dart';
+import 'package:lexii/features/exam/data/models/question_model.dart';
 import 'package:lexii/features/exam/presentation/pages/score_certificate_page.dart';
 import 'package:lexii/features/exam/presentation/pages/result_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_review_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_detail_page.dart';
 import 'package:lexii/features/settings/presentation/pages/settings_page.dart';
 import 'package:lexii/features/settings/presentation/pages/upgrade_page.dart';
+import 'package:lexii/features/settings/presentation/pages/payment_result_page.dart';
 import 'package:lexii/features/theory/presentation/pages/theory_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppRouter {
   static late final GoRouter router;
@@ -35,6 +38,44 @@ class AppRouter {
 
     router = GoRouter(
       initialLocation: onboardingCompleted ? '/home' : '/onboarding',
+      redirect: (context, state) {
+        final uri = state.uri;
+        if (uri.scheme != 'lexii') return null;
+
+        final host = uri.host.toLowerCase();
+        final path = uri.path.toLowerCase();
+
+        final isAuthDeepLink =
+            host == 'home' ||
+            host == 'login-callback' ||
+            path == '/home' ||
+            path.endsWith('/login-callback');
+        if (isAuthDeepLink) {
+          final auth = Supabase.instance.client.auth;
+          final isAuthenticated = auth.currentSession != null;
+          return isAuthenticated ? '/home' : '/auth/signup';
+        }
+
+        final isPaymentDeepLink =
+            host == 'payment-result' || path.endsWith('/payment-result');
+        if (isPaymentDeepLink) {
+          final statusRaw =
+              (uri.queryParameters['status'] ?? uri.queryParameters['code'] ?? '')
+                  .toLowerCase();
+          final status = switch (statusRaw) {
+            'success' || 'paid' || '00' => 'success',
+            'cancel' || 'cancelled' || 'canceled' => 'cancel',
+            _ => 'failed',
+          };
+          final orderCode =
+              uri.queryParameters['orderCode'] ?? uri.queryParameters['order_code'];
+          return orderCode == null || orderCode.isEmpty
+              ? '/payment/result?status=$status'
+              : '/payment/result?status=$status&orderCode=$orderCode';
+        }
+
+        return null;
+      },
       routes: [
         GoRoute(
           path: '/onboarding',
@@ -44,8 +85,8 @@ class AppRouter {
             child: const OnboardingScreen(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
+                  return FadeTransition(opacity: animation, child: child);
+                },
           ),
         ),
         GoRoute(
@@ -56,27 +97,25 @@ class AppRouter {
             child: const SignUpPage(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
-              const begin = Offset(1.0, 0.0);
-              const end = Offset.zero;
-              final tween = Tween(begin: begin, end: end)
-                  .chain(CurveTween(curve: Curves.easeInOut));
-              return SlideTransition(
-                position: animation.drive(tween),
-                child: child,
-              );
-            },
+                  const begin = Offset(1.0, 0.0);
+                  const end = Offset.zero;
+                  final tween = Tween(
+                    begin: begin,
+                    end: end,
+                  ).chain(CurveTween(curve: Curves.easeInOut));
+                  return SlideTransition(
+                    position: animation.drive(tween),
+                    child: child,
+                  );
+                },
           ),
         ),
         GoRoute(
           path: '/home',
           name: 'home',
-          pageBuilder: (context, state) => CustomTransitionPage(
+          pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const DashboardPage(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
           ),
         ),
         // Practice part intro
@@ -104,10 +143,12 @@ class AppRouter {
                 testId: extra['testId'] as String? ?? '',
                 partId: extra['partId'] as String? ?? '',
                 partTitle: extra['partTitle'] as String? ?? '',
+                section: extra['section'] as String? ?? 'listening',
                 correct: extra['correct'] as int? ?? 0,
                 total: extra['total'] as int? ?? 0,
-                userAnswers:
-                    (extra['userAnswers'] as Map<int, int>?) ?? {},
+                userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
+                questionsOverride:
+                    (extra['questions'] as List?)?.cast<QuestionModel>(),
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -124,8 +165,12 @@ class AppRouter {
               child: ReadingQuestionPage(
                 testId: extra['testId'] as String? ?? '',
                 partId: extra['partId'] as String? ?? '',
+                partNumber: extra['partNumber'] as int?,
                 partTitle: extra['partTitle'] as String? ?? '',
                 questionLimit: extra['questionLimit'] as int?,
+                questionIds: (extra['questionIds'] as List?)?.cast<String>(),
+                randomizeQuestions:
+                    extra['randomizeQuestions'] as bool? ?? false,
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -156,12 +201,12 @@ class AppRouter {
               key: state.pageKey,
               child: WritingResultPage(
                 partTitle: extra['partTitle'] as String? ?? '',
-                prompts: (extra['prompts'] as List?)
-                        ?.cast<WritingPromptModel>() ??
+                prompts:
+                    (extra['prompts'] as List?)?.cast<WritingPromptModel>() ??
                     [],
                 userAnswers:
                     (extra['userAnswers'] as Map?)?.cast<String, String>() ??
-                        {},
+                    {},
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -208,38 +253,48 @@ class AppRouter {
         GoRoute(
           path: '/theory',
           name: 'theory',
-          pageBuilder: (context, state) => CustomTransitionPage(
+          pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const TheoryPage(),
-            transitionsBuilder: _slideUpTransition,
           ),
         ),
         // Settings & Upgrade
         GoRoute(
           path: '/settings',
           name: 'settings',
-          pageBuilder: (context, state) => CustomTransitionPage(
+          pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const SettingsPage(),
-            transitionsBuilder: _slideUpTransition,
           ),
         ),
         GoRoute(
           path: '/upgrade',
           name: 'upgrade',
-          pageBuilder: (context, state) => CustomTransitionPage(
+          pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const UpgradePage(),
-            transitionsBuilder: _slideUpTransition,
           ),
+        ),
+        GoRoute(
+          path: '/payment/result',
+          name: 'paymentResult',
+          pageBuilder: (context, state) {
+            final status = (state.uri.queryParameters['status'] ?? 'failed')
+                .toLowerCase();
+            final orderCode = state.uri.queryParameters['orderCode'];
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: PaymentResultPage(status: status, orderCode: orderCode),
+              transitionsBuilder: _slideUpTransition,
+            );
+          },
         ),
         GoRoute(
           path: '/exam/mock-test',
           name: 'mockTest',
-          pageBuilder: (context, state) => CustomTransitionPage(
+          pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const MockTestPage(),
-            transitionsBuilder: _slideUpTransition,
           ),
         ),
         // Test flow routes
@@ -288,8 +343,12 @@ class AppRouter {
                 testId: extra['testId'] as String? ?? '',
                 testTitle: extra['testTitle'] as String? ?? 'Test',
                 partId: extra['partId'] as String?,
+                partNumber: extra['partNumber'] as int?,
                 isPracticeMode: extra['isPracticeMode'] as bool? ?? false,
                 questionLimit: extra['questionLimit'] as int?,
+                questionIds: (extra['questionIds'] as List?)?.cast<String>(),
+                randomizeQuestions:
+                    extra['randomizeQuestions'] as bool? ?? false,
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -309,7 +368,8 @@ class AppRouter {
                 listeningScore: (extra['listeningScore'] as num?)?.toInt() ?? 5,
                 readingScore: (extra['readingScore'] as num?)?.toInt() ?? 5,
                 totalCorrect: (extra['totalCorrect'] as num?)?.toInt() ?? 0,
-                totalQuestions: (extra['totalQuestions'] as num?)?.toInt() ?? 200,
+                totalQuestions:
+                    (extra['totalQuestions'] as num?)?.toInt() ?? 200,
                 userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
               ),
               transitionsBuilder: _slideRightTransition,
@@ -347,6 +407,7 @@ class AppRouter {
                 userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
                 section: extra['section'] as String? ?? 'listening',
                 partId: extra['partId'] as String?,
+                questionIds: (extra['questionIds'] as List?)?.cast<String>(),
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -383,12 +444,11 @@ class AppRouter {
   ) {
     const begin = Offset(0.0, 1.0);
     const end = Offset.zero;
-    final tween = Tween(begin: begin, end: end)
-        .chain(CurveTween(curve: Curves.easeOutCubic));
-    return SlideTransition(
-      position: animation.drive(tween),
-      child: child,
-    );
+    final tween = Tween(
+      begin: begin,
+      end: end,
+    ).chain(CurveTween(curve: Curves.easeOutCubic));
+    return SlideTransition(position: animation.drive(tween), child: child);
   }
 
   static Widget _slideRightTransition(
@@ -399,11 +459,10 @@ class AppRouter {
   ) {
     const begin = Offset(1.0, 0.0);
     const end = Offset.zero;
-    final tween = Tween(begin: begin, end: end)
-        .chain(CurveTween(curve: Curves.easeOutCubic));
-    return SlideTransition(
-      position: animation.drive(tween),
-      child: child,
-    );
+    final tween = Tween(
+      begin: begin,
+      end: end,
+    ).chain(CurveTween(curve: Curves.easeOutCubic));
+    return SlideTransition(position: animation.drive(tween), child: child);
   }
 }

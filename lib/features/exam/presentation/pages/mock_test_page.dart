@@ -5,6 +5,7 @@ import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/presentation/widgets/fulltest_grid.dart';
 import 'package:lexii/features/exam/presentation/widgets/minitest_grid.dart';
 import 'package:lexii/features/exam/presentation/widgets/sw_section.dart';
+import 'package:lexii/features/home/presentation/widgets/bottom_nav_bar.dart';
 
 class MockTestPage extends StatelessWidget {
   const MockTestPage({super.key});
@@ -36,7 +37,30 @@ class MockTestPage extends StatelessWidget {
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: 1,
+        onTap: (index) => _onNavTap(context, index),
+      ),
     );
+  }
+
+  void _onNavTap(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        context.go('/home');
+        return;
+      case 1:
+        return;
+      case 2:
+        context.go('/theory');
+        return;
+      case 3:
+        context.go('/upgrade');
+        return;
+      case 4:
+        context.go('/settings');
+        return;
+    }
   }
 
   Widget _buildAppBar(BuildContext context) {
@@ -62,7 +86,13 @@ class MockTestPage extends StatelessWidget {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => context.pop(),
+                  onTap: () {
+                    if (context.canPop()) {
+                      context.pop();
+                      return;
+                    }
+                    context.go('/home');
+                  },
                   borderRadius: BorderRadius.circular(9999),
                   child: const Padding(
                     padding: EdgeInsets.all(8),

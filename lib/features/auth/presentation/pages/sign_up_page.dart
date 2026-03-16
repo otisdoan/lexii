@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -19,9 +22,23 @@ class _SignUpPageState extends State<SignUpPage> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isGoogleLoading = false;
+  StreamSubscription<AuthState>? _authStateSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStateSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (!mounted) return;
+      if (data.event == AuthChangeEvent.signedIn) {
+        context.go('/home');
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _authStateSub?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -414,7 +431,7 @@ class _SignUpPageState extends State<SignUpPage> {
           width: double.infinity,
           height: 56,
           child: OutlinedButton(
-            onPressed: _onGoogleSignIn,
+            onPressed: _isGoogleLoading ? null : _onGoogleSignIn,
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSlate600,
               side: const BorderSide(color: AppColors.borderSlate200),
@@ -426,15 +443,31 @@ class _SignUpPageState extends State<SignUpPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Google icon (simplified)
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CustomPaint(painter: _GoogleLogoPainter()),
-                ),
-                const SizedBox(width: 12),
+                if (_isGoogleLoading) ...[
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ] else ...[
+                  // Google icon (simplified)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CustomPaint(painter: _GoogleLogoPainter()),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Text(
-                  'Đăng nhập bằng Google',
+                  _isGoogleLoading
+                      ? 'Đang mở đăng nhập Google...'
+                      : 'Đăng nhập bằng Google',
                   style: GoogleFonts.lexend(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -479,14 +512,47 @@ class _SignUpPageState extends State<SignUpPage> {
 
   void _onSignUp() {
     if (_formKey.currentState?.validate() ?? false) {
-      // TODO: Implement sign up with Supabase
-      context.go('/home');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tính năng đăng ký email đang được cập nhật. Vui lòng dùng Google để đăng nhập.'),
+        ),
+      );
     }
   }
 
-  void _onGoogleSignIn() {
-    // TODO: Implement Google sign in with Supabase
-    context.go('/home');
+  Future<void> _onGoogleSignIn() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final redirectTo = kIsWeb ? Uri.base.origin : 'lexii://login-callback/';
+      debugPrint('[AUTH] Starting Google OAuth.');
+      debugPrint('[AUTH] kIsWeb=$kIsWeb');
+      debugPrint('[AUTH] Uri.base=${Uri.base}');
+      debugPrint('[AUTH] redirectTo=$redirectTo');
+
+      await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: redirectTo,
+      );
+      debugPrint('[AUTH] signInWithOAuth launched successfully.');
+    } on AuthException catch (error) {
+      debugPrint('[AUTH] AuthException during Google OAuth: ${error.message}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (error) {
+      debugPrint('[AUTH] Unexpected exception during Google OAuth: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đăng nhập Google thất bại, vui lòng thử lại.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isGoogleLoading = false);
+      }
+    }
   }
 }
 

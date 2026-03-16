@@ -8,6 +8,7 @@ import 'package:lexii/features/practice/data/repositories/writing_repository.dar
 class PracticePartData {
   final String testPartId;
   final String testId;
+  final List<String> partIds;
   final int partNumber;
   final String title;
   final IconData icon;
@@ -23,6 +24,7 @@ class PracticePartData {
   const PracticePartData({
     required this.testPartId,
     required this.testId,
+    this.partIds = const [],
     required this.partNumber,
     required this.title,
     required this.icon,
@@ -100,90 +102,101 @@ class PracticeRepository {
   // ── Public API ───────────────────────────────────────────────
 
   /// Returns Part 1–4 data for [testId], enriched with the current user's
-  /// progress (answers from all past attempts on this test).
-  Future<List<PracticePartData>> getListeningParts(String testId) async {
-    developer.log('Loading listening parts for test $testId',
+  /// progress (history from all full tests).
+  Future<List<PracticePartData>> getListeningParts() async {
+    developer.log('Loading listening parts across all full tests',
         name: 'PracticeRepo');
 
-    // 1. Fetch test_parts for part_number 1-4
+    final testsResponse = await _client
+        .from('tests')
+        .select('id')
+        .eq('type', 'full_test')
+        .order('created_at', ascending: true) as List<dynamic>;
+
+    if (testsResponse.isEmpty) return [];
+
+    final testIds = testsResponse.map((t) => t['id'] as String).toList();
+    final fallbackTestId = testIds.first;
+
     final partsResponse = await _client
         .from('test_parts')
         .select('id, part_number, test_id')
-        .eq('test_id', testId)
+        .inFilter('test_id', testIds)
         .inFilter('part_number', [1, 2, 3, 4])
         .order('part_number', ascending: true) as List<dynamic>;
 
     if (partsResponse.isEmpty) return [];
 
-    final partIds = partsResponse.map((p) => p['id'] as String).toList();
+    final partNumberById = <String, int>{};
+    final partIdsByNumber = <int, List<String>>{
+      1: <String>[],
+      2: <String>[],
+      3: <String>[],
+      4: <String>[],
+    };
 
-    // 2. Count questions per part
-    final questionsResponse = await _client
-        .from('questions')
-        .select('part_id')
-        .inFilter('part_id', partIds) as List<dynamic>;
-
-    final questionCounts = <String, int>{};
-    for (final q in questionsResponse) {
-      final pid = q['part_id'] as String;
-      questionCounts[pid] = (questionCounts[pid] ?? 0) + 1;
+    for (final part in partsResponse) {
+      final partId = part['id'] as String;
+      final partNumber = (part['part_number'] as num).toInt();
+      partNumberById[partId] = partNumber;
+      partIdsByNumber[partNumber]?.add(partId);
     }
 
-    // 3. Compute user progress from answers table (if logged in)
-    final progressMap = <String, _PartStats>{};
+    final allPartIds = partNumberById.keys.toList();
+
+    final questionsResponse = await _client
+        .from('questions')
+        .select('id, part_id')
+        .inFilter('part_id', allPartIds) as List<dynamic>;
+
+    final questionCountsByPartId = <String, int>{};
+    for (final q in questionsResponse) {
+      final pid = q['part_id'] as String;
+      questionCountsByPartId[pid] = (questionCountsByPartId[pid] ?? 0) + 1;
+    }
+
+    final progressByPartNumber = <int, _PartStats>{};
     final userId = _client.auth.currentUser?.id;
 
     if (userId != null) {
-      final attemptsResponse = await _client
-          .from('attempts')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('test_id', testId) as List<dynamic>;
+      final historyResponse = await _client
+          .from('listening_answer_history')
+          .select('is_correct, questions!inner(part_id)')
+          .eq('user_id', userId) as List<dynamic>;
 
-      if (attemptsResponse.isNotEmpty) {
-        final attemptIds =
-            attemptsResponse.map((a) => a['id'] as String).toList();
-
-        final answersResponse = await _client
-            .from('answers')
-            .select('is_correct, questions!inner(part_id)')
-            .inFilter('attempt_id', attemptIds) as List<dynamic>;
-
-        for (final a in answersResponse) {
-          final partId =
-              (a['questions'] as Map<String, dynamic>)['part_id'] as String;
-          final isCorrect = a['is_correct'] as bool? ?? false;
-          final stats = progressMap[partId] ?? _PartStats();
-          stats.answered++;
-          if (isCorrect) stats.correct++;
-          progressMap[partId] = stats;
-        }
+      for (final row in historyResponse) {
+        final questionPartId =
+            (row['questions'] as Map<String, dynamic>)['part_id'] as String;
+        final partNumber = partNumberById[questionPartId];
+        if (partNumber == null) continue;
+        final stats = progressByPartNumber[partNumber] ?? _PartStats();
+        stats.answered++;
+        if ((row['is_correct'] as bool?) ?? false) stats.correct++;
+        progressByPartNumber[partNumber] = stats;
       }
     }
 
-    developer.log(
-        'Parts: ${partsResponse.length}, progress entries: ${progressMap.length}',
-        name: 'PracticeRepo');
-
-    // 4. Build result
-    return partsResponse.map((part) {
-      final partId = part['id'] as String;
-      final partNumber = (part['part_number'] as num).toInt();
-      final total = questionCounts[partId] ?? 0;
-      final stats = progressMap[partId] ?? _PartStats();
+    return [1, 2, 3, 4].map((partNumber) {
+      final partIds = partIdsByNumber[partNumber] ?? const <String>[];
+      final totalQuestions = partIds.fold<int>(
+        0,
+        (sum, partId) => sum + (questionCountsByPartId[partId] ?? 0),
+      );
+      final stats = progressByPartNumber[partNumber] ?? _PartStats();
 
       return PracticePartData(
-        testPartId: partId,
-        testId: testId,
+        testPartId: partIds.isNotEmpty ? partIds.first : 'part-$partNumber',
+        testId: fallbackTestId,
+        partIds: partIds,
         partNumber: partNumber,
         title: _listeningTitle(partNumber),
         icon: _listeningIcon(partNumber),
         iconBgColor: _listeningBg(partNumber),
         iconColor: _listeningFg(partNumber),
-        totalQuestions: total,
+        totalQuestions: totalQuestions,
         totalAnswered: stats.answered,
         correctAnswers: stats.correct,
-        isLocked: total == 0,
+        isLocked: totalQuestions == 0,
         questionType: 'mcq_audio',
       );
     }).toList();
@@ -227,34 +240,59 @@ class PracticeRepository {
     }
   }
 
-  /// Returns Part 5–7 data for [testId], enriched with the current user's progress.
-  Future<List<PracticePartData>> getReadingParts(String testId) async {
-    developer.log('Loading reading parts for test $testId',
+  /// Returns Part 5–7 data aggregated from all full tests, enriched with user progress.
+  Future<List<PracticePartData>> getReadingParts() async {
+    developer.log('Loading reading parts across all full tests',
         name: 'PracticeRepo');
+
+    final testsResponse = await _client
+        .from('tests')
+        .select('id')
+        .eq('type', 'full_test')
+        .order('created_at', ascending: true) as List<dynamic>;
+
+    if (testsResponse.isEmpty) return [];
+
+    final testIds = testsResponse.map((t) => t['id'] as String).toList();
+    final fallbackTestId = testIds.first;
 
     final partsResponse = await _client
         .from('test_parts')
         .select('id, part_number, test_id')
-        .eq('test_id', testId)
+        .inFilter('test_id', testIds)
         .inFilter('part_number', [5, 6, 7])
         .order('part_number', ascending: true) as List<dynamic>;
 
     if (partsResponse.isEmpty) return [];
 
-    final partIds = partsResponse.map((p) => p['id'] as String).toList();
+    final partNumberById = <String, int>{};
+    final partIdsByNumber = <int, List<String>>{
+      5: <String>[],
+      6: <String>[],
+      7: <String>[],
+    };
+
+    for (final part in partsResponse) {
+      final partId = part['id'] as String;
+      final partNumber = (part['part_number'] as num).toInt();
+      partNumberById[partId] = partNumber;
+      partIdsByNumber[partNumber]?.add(partId);
+    }
+
+    final allPartIds = partNumberById.keys.toList();
 
     final questionsResponse = await _client
         .from('questions')
-        .select('part_id')
-        .inFilter('part_id', partIds) as List<dynamic>;
+        .select('id, part_id')
+        .inFilter('part_id', allPartIds) as List<dynamic>;
 
-    final questionCounts = <String, int>{};
+    final questionCountsByPartId = <String, int>{};
     for (final q in questionsResponse) {
       final pid = q['part_id'] as String;
-      questionCounts[pid] = (questionCounts[pid] ?? 0) + 1;
+      questionCountsByPartId[pid] = (questionCountsByPartId[pid] ?? 0) + 1;
     }
 
-    final progressMap = <String, _PartStats>{};
+    final progressByPartNumber = <int, _PartStats>{};
     final userId = _client.auth.currentUser?.id;
 
     if (userId != null) {
@@ -262,47 +300,52 @@ class PracticeRepository {
           .from('attempts')
           .select('id')
           .eq('user_id', userId)
-          .eq('test_id', testId) as List<dynamic>;
+          .inFilter('test_id', testIds) as List<dynamic>;
 
       if (attemptsResponse.isNotEmpty) {
-        final attemptIds =
-            attemptsResponse.map((a) => a['id'] as String).toList();
+        final attemptIds = attemptsResponse
+            .map((a) => a['id'] as String)
+            .toList();
 
         final answersResponse = await _client
             .from('answers')
             .select('is_correct, questions!inner(part_id)')
             .inFilter('attempt_id', attemptIds) as List<dynamic>;
 
-        for (final a in answersResponse) {
-          final partId =
-              (a['questions'] as Map<String, dynamic>)['part_id'] as String;
-          final isCorrect = a['is_correct'] as bool? ?? false;
-          final stats = progressMap[partId] ?? _PartStats();
+        for (final row in answersResponse) {
+          final questionPartId =
+              (row['questions'] as Map<String, dynamic>)['part_id'] as String;
+          final partNumber = partNumberById[questionPartId];
+          if (partNumber == null) continue;
+          final stats = progressByPartNumber[partNumber] ?? _PartStats();
           stats.answered++;
-          if (isCorrect) stats.correct++;
-          progressMap[partId] = stats;
+          if ((row['is_correct'] as bool?) ?? false) stats.correct++;
+          progressByPartNumber[partNumber] = stats;
         }
       }
     }
 
-    return partsResponse.map((part) {
-      final partId = part['id'] as String;
-      final partNumber = (part['part_number'] as num).toInt();
-      final total = questionCounts[partId] ?? 0;
-      final stats = progressMap[partId] ?? _PartStats();
+    return [5, 6, 7].map((partNumber) {
+      final partIds = partIdsByNumber[partNumber] ?? const <String>[];
+      final totalQuestions = partIds.fold<int>(
+        0,
+        (sum, partId) => sum + (questionCountsByPartId[partId] ?? 0),
+      );
+      final stats = progressByPartNumber[partNumber] ?? _PartStats();
 
       return PracticePartData(
-        testPartId: partId,
-        testId: testId,
+        testPartId: partIds.isNotEmpty ? partIds.first : 'part-$partNumber',
+        testId: fallbackTestId,
+        partIds: partIds,
         partNumber: partNumber,
         title: _readingTitle(partNumber),
         icon: _readingIcon(partNumber),
         iconBgColor: _readingBg(partNumber),
         iconColor: _readingFg(partNumber),
-        totalQuestions: total,
+        totalQuestions: totalQuestions,
         totalAnswered: stats.answered,
         correctAnswers: stats.correct,
-        isLocked: total == 0,
+        isLocked: totalQuestions == 0,
         questionType: 'mcq_text',
       );
     }).toList();
