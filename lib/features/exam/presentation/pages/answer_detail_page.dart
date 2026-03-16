@@ -15,6 +15,10 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
   final Map<int, int> userAnswers;
   /// When set, loads only this part's questions (practice mode).
   final String? partId;
+  /// When set, loads these questions in order (practice mode from answer-review).
+  final List<String>? questionIds;
+  /// Tổng số câu trong section (hiển thị Câu 1/40, 2/40...). Nếu null thì dùng questions.length.
+  final int? totalSectionQuestions;
 
   const AnswerDetailPage({
     super.key,
@@ -23,6 +27,8 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
     required this.questionIndex,
     this.userAnswers = const {},
     this.partId,
+    this.questionIds,
+    this.totalSectionQuestions,
   });
 
   @override
@@ -68,9 +74,11 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = widget.partId != null
-        ? ref.watch(questionsByPartIdProvider(widget.partId!))
-        : ref.watch(questionsByTestIdProvider(widget.testId));
+    final questionsAsync = widget.questionIds != null && widget.questionIds!.isNotEmpty
+        ? ref.watch(questionsByIdsProvider(widget.questionIds!))
+        : widget.partId != null
+            ? ref.watch(questionsByPartIdProvider(widget.partId!))
+            : ref.watch(questionsByTestIdProvider(widget.testId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -86,7 +94,11 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
           final q = questions[_currentIndex];
           final selectedIdx = widget.userAnswers[_currentIndex];
-          final totalQ = questions.length;
+          // Theo thứ tự câu trong bài: 1/40, 2/40... (dùng totalSectionQuestions nếu có).
+          final totalQ = widget.totalSectionQuestions ?? questions.length;
+          final isPracticeScoped = widget.partId != null ||
+              (widget.questionIds != null && widget.questionIds!.isNotEmpty);
+          final displayNumber = isPracticeScoped ? _currentIndex + 1 : q.orderIndex;
 
           // Auto-load audio
           if (q.audioUrl != null && _duration == Duration.zero) {
@@ -97,7 +109,7 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
           return Column(
             children: [
-              _buildHeader(context, q.orderIndex, totalQ),
+              _buildHeader(context, displayNumber, totalQ),
               _buildAudioBar(q),
               Expanded(
                 child: Stack(

@@ -622,9 +622,7 @@ class _ListeningQuestionPageState
         ref.invalidate(listeningPracticePartsProvider);
         ref.invalidate(wrongListeningQuestionIdsProvider);
       }
-    } catch (e) {
-      debugPrint('Failed to save attempt: $e');
-    }
+    } catch (_) {}
 
     if (!mounted) return;
 

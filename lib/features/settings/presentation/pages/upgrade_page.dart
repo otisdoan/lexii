@@ -160,10 +160,8 @@ class _UpgradePageState extends ConsumerState<UpgradePage> {
         planIndex: _selectedPlan,
       );
       final checkoutUrl = checkoutSession.checkoutUrl;
-      debugPrint('[PAYMENT] checkoutUrl=$checkoutUrl');
 
       final launched = await _openCheckoutUrl(checkoutUrl);
-      debugPrint('[PAYMENT] launchResult=$launched, kIsWeb=$kIsWeb');
 
       if (!launched) {
         _showSnackBar('Không mở được trang thanh toán. Vui lòng thử lại.');

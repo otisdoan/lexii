@@ -15,6 +15,8 @@ class AnswerReviewPage extends ConsumerStatefulWidget {
   final String? partId;
   /// When set, loads explicit question IDs (practice mode without partId).
   final List<String>? questionIds;
+  /// Tổng số câu trong section (để hiển thị Câu 1/40, 2/40...). Nếu null thì dùng questions.length.
+  final int? totalSectionQuestions;
 
   const AnswerReviewPage({
     super.key,
@@ -24,6 +26,7 @@ class AnswerReviewPage extends ConsumerStatefulWidget {
     this.section = 'listening',
     this.partId,
     this.questionIds,
+    this.totalSectionQuestions,
   });
 
   @override
@@ -207,6 +210,17 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
     );
   }
 
+  /// Số thứ tự hiển thị: luyện tập 1 part → Câu 1,2,3...; thi full đề → orderIndex.
+  int _displayQuestionNumber(_QuestionWithIndex qi) {
+    final isPracticeScoped =
+        widget.partId != null ||
+        (widget.questionIds != null && widget.questionIds!.isNotEmpty);
+    if (isPracticeScoped) {
+      return qi.globalIndex + 1;
+    }
+    return qi.question.orderIndex;
+  }
+
   Widget _buildQuestionList(
       BuildContext context, List<QuestionModel> allQuestions, String section) {
     final isPracticeScoped =
@@ -229,11 +243,24 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
 
     // Split by section (first 4 parts = listening, rest = reading)
     final allPartIds = partGroups.keys.toList();
-    final sectionPartIds = isPracticeScoped
-      ? allPartIds
-      : (isListening
-        ? allPartIds.take(4.clamp(0, allPartIds.length)).toList()
-        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList());
+    var sectionPartIds = isPracticeScoped
+        ? List<String>.from(allPartIds)
+        : (isListening
+            ? allPartIds.take(4.clamp(0, allPartIds.length)).toList()
+            : allPartIds.skip(4.clamp(0, allPartIds.length)).toList());
+    // Thứ tự part theo vị trí câu trong bài: Part 1 (câu 1,2,3) → Part 2 (câu 4,5...)...
+    if (isPracticeScoped && sectionPartIds.length > 1) {
+      sectionPartIds = List.from(sectionPartIds)
+        ..sort((a, b) {
+          final minA = partGroups[a]!
+              .map((e) => e.globalIndex)
+              .reduce((x, y) => x < y ? x : y);
+          final minB = partGroups[b]!
+              .map((e) => e.globalIndex)
+              .reduce((x, y) => x < y ? x : y);
+          return minA.compareTo(minB);
+        });
+    }
 
     final partNames = isListening
         ? [
@@ -331,7 +358,8 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
   Widget _buildQuestionItem(BuildContext context, _QuestionWithIndex qi,
       List<QuestionModel> allQuestions) {
     final q = qi.question;
-    final selectedIdx = widget.userAnswers[qi.globalIndex];
+    final localIndex = qi.globalIndex;
+    final selectedIdx = widget.userAnswers[localIndex];
     final isSkipped = selectedIdx == null;
     final isCorrect = !isSkipped &&
         selectedIdx < q.options.length &&
@@ -373,6 +401,9 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
             'testTitle': widget.testTitle,
             'questionIndex': qi.globalIndex,
             'userAnswers': widget.userAnswers,
+            'partId': widget.partId,
+            'questionIds': widget.questionIds,
+            'totalSectionQuestions': widget.totalSectionQuestions,
           });
         },
         child: Padding(
@@ -399,7 +430,7 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Câu ${qi.question.orderIndex}',
+                  'Câu ${_displayQuestionNumber(qi)}',
                   style: GoogleFonts.lexend(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

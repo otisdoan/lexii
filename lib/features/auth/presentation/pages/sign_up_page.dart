@@ -524,24 +524,17 @@ class _SignUpPageState extends State<SignUpPage> {
     setState(() => _isGoogleLoading = true);
     try {
       final redirectTo = kIsWeb ? Uri.base.origin : 'lexii://login-callback/';
-      debugPrint('[AUTH] Starting Google OAuth.');
-      debugPrint('[AUTH] kIsWeb=$kIsWeb');
-      debugPrint('[AUTH] Uri.base=${Uri.base}');
-      debugPrint('[AUTH] redirectTo=$redirectTo');
 
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirectTo,
       );
-      debugPrint('[AUTH] signInWithOAuth launched successfully.');
     } on AuthException catch (error) {
-      debugPrint('[AUTH] AuthException during Google OAuth: ${error.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
     } catch (error) {
-      debugPrint('[AUTH] Unexpected exception during Google OAuth: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

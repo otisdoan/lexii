@@ -307,11 +307,17 @@ class QuestionRepository {
         }
       }
 
-      return response.map((json) {
+      final list = response.map((json) {
         final q = QuestionModel.fromJson(json);
         final content = q.passageId != null ? passageMap[q.passageId] : null;
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
+      // Preserve order of input questionIds (e.g. practice flow) so indices match userAnswers.
+      final byId = {for (final q in list) q.id: q};
+      return questionIds
+          .map((id) => byId[id])
+          .whereType<QuestionModel>()
+          .toList();
     } catch (e, stack) {
       developer.log('Error fetching questions by ids: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);

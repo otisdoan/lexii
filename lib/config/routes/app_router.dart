@@ -408,6 +408,7 @@ class AppRouter {
                 section: extra['section'] as String? ?? 'listening',
                 partId: extra['partId'] as String?,
                 questionIds: (extra['questionIds'] as List?)?.cast<String>(),
+                totalSectionQuestions: extra['totalSectionQuestions'] as int?,
               ),
               transitionsBuilder: _slideRightTransition,
             );
@@ -427,6 +428,8 @@ class AppRouter {
                 questionIndex: extra['questionIndex'] as int? ?? 0,
                 userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
                 partId: extra['partId'] as String?,
+                questionIds: (extra['questionIds'] as List?)?.cast<String>(),
+                totalSectionQuestions: extra['totalSectionQuestions'] as int?,
               ),
               transitionsBuilder: _slideRightTransition,
             );
