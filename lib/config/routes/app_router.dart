@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lexii/core/constants/app_constants.dart';
+import 'package:lexii/screens/splash_screen.dart';
 import 'package:lexii/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:lexii/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:lexii/features/home/presentation/pages/dashboard_page.dart';
@@ -35,12 +36,8 @@ class AppRouter {
   static late final GoRouter router;
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingCompleted =
-        prefs.getBool(AppConstants.onboardingCompletedKey) ?? false;
-
     router = GoRouter(
-      initialLocation: onboardingCompleted ? '/home' : '/onboarding',
+      initialLocation: '/splash',
       redirect: (context, state) {
         final uri = state.uri;
         if (uri.scheme != 'lexii') return null;
@@ -80,6 +77,18 @@ class AppRouter {
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/splash',
+          name: 'splash',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const SplashScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+          ),
+        ),
         GoRoute(
           path: '/onboarding',
           name: 'onboarding',
