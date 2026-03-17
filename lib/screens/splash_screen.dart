@@ -20,7 +20,10 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
     _initializeAnimation();
-    _precacheImageAndNavigate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precacheImageAndNavigate();
+    });
   }
 
   /// Initialize fade-in animation (1000ms duration)
