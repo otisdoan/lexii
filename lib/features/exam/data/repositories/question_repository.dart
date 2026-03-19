@@ -67,11 +67,21 @@ class QuestionRepository {
         }
       }
 
-      return questionsResponse.map((json) {
+      final list = questionsResponse.map((json) {
         final q = QuestionModel.fromJson(json);
         final content = q.passageId != null ? passageMap[q.passageId] : null;
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
+
+      // Sắp xếp: Part 1 → Part 2 → … → Part 7, trong mỗi part theo order_index.
+      // Tránh thứ tự lộn xộn từ PostgREST .inFilter().order('order_index').
+      list.sort((a, b) {
+        final partCompare = partIds.indexOf(a.partId).compareTo(partIds.indexOf(b.partId));
+        if (partCompare != 0) return partCompare;
+        return a.orderIndex.compareTo(b.orderIndex);
+      });
+
+      return list;
     } catch (e, stack) {
       developer.log('Error fetching questions: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);

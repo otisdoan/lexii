@@ -67,10 +67,15 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
             if (widget.randomizeQuestions) {
               questionsPool.shuffle();
             }
-            final questions = widget.questionLimit != null &&
+            var questions = widget.questionLimit != null &&
                     widget.questionLimit! < questionsPool.length
                 ? questionsPool.sublist(0, widget.questionLimit!)
                 : questionsPool;
+
+            // Sau khi chọn bộ câu ngẫu nhiên, sắp xếp lại theo thứ tự gốc trong đề
+            questions.sort(
+              (a, b) => a.orderIndex.compareTo(b.orderIndex),
+            );
 
             if (questions.isEmpty) {
               return _buildEmpty(context);

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
-import 'package:lexii/features/exam/data/models/test_part_model.dart';
 import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 
 class PracticePartResultPage extends ConsumerWidget {
@@ -32,8 +31,6 @@ class PracticePartResultPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final percent = total > 0 ? (correct / total * 100).round() : 0;
-    final partsValue = ref.watch(testPartsProvider(testId)).valueOrNull;
-    final totalSectionQuestions = _sectionTotal(partsValue, section) ?? total;
 
     if (questionsOverride != null) {
       return Scaffold(
@@ -42,7 +39,7 @@ class PracticePartResultPage extends ConsumerWidget {
           children: [
             _buildAppBar(context),
             Expanded(
-              child: _buildBody(context, percent, questionsOverride!, totalSectionQuestions),
+              child: _buildBody(context, percent, questionsOverride!),
             ),
           ],
         ),
@@ -59,9 +56,9 @@ class PracticePartResultPage extends ConsumerWidget {
           _buildAppBar(context),
           Expanded(
             child: questionsAsync.when(
-              loading: () => _buildBody(context, percent, [], totalSectionQuestions),
-              error: (_, _) => _buildBody(context, percent, [], totalSectionQuestions),
-              data: (questions) => _buildBody(context, percent, questions, totalSectionQuestions),
+              loading: () => _buildBody(context, percent, []),
+              error: (_, _) => _buildBody(context, percent, []),
+              data: (questions) => _buildBody(context, percent, questions),
             ),
           ),
         ],
@@ -120,7 +117,7 @@ class PracticePartResultPage extends ConsumerWidget {
   // ── Body ──────────────────────────────────────────────────────
 
   Widget _buildBody(
-      BuildContext context, int percent, List<QuestionModel> questions, int totalSectionQuestions) {
+      BuildContext context, int percent, List<QuestionModel> questions) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
@@ -130,7 +127,7 @@ class PracticePartResultPage extends ConsumerWidget {
         const SizedBox(height: 12),
         _buildChart(percent),
         const SizedBox(height: 12),
-        _buildWrongQuestionsSection(context, questions, totalSectionQuestions),
+        _buildWrongQuestionsSection(context, questions),
       ],
     );
   }
@@ -317,7 +314,7 @@ class PracticePartResultPage extends ConsumerWidget {
   // ── Wrong questions section ──────────────────────────────────
 
   Widget _buildWrongQuestionsSection(
-      BuildContext context, List<QuestionModel> questions, int totalSectionQuestions) {
+      BuildContext context, List<QuestionModel> questions) {
     final wrongItems =
         questions.isEmpty ? <_WrongItem>[] : _buildWrongList(questions);
 
@@ -374,8 +371,9 @@ class PracticePartResultPage extends ConsumerWidget {
             )
           else
             ...wrongItems.take(5).map(
-                  (item) => _buildWrongItem(context, item),
+                  (item) => _buildWrongItem(context, item, questions),
                 ),
+          // Luôn truyền questionIds từ list đang xem để review/chi tiết dùng cùng bộ câu (không load lại bằng partId).
           if (questions.isNotEmpty)
             Material(
               color: const Color(0xFFFFFBEB),
@@ -387,7 +385,6 @@ class PracticePartResultPage extends ConsumerWidget {
                   'section': section,
                   'partId': partId.isNotEmpty ? partId : null,
                   'questionIds': questions.map((q) => q.id).toList(),
-                  'totalSectionQuestions': totalSectionQuestions,
                 }),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -418,21 +415,25 @@ class PracticePartResultPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildWrongItem(BuildContext context, _WrongItem item) {
+  Widget _buildWrongItem(
+      BuildContext context, _WrongItem item, List<QuestionModel> questions) {
     final letter = item.correctOptionIndex >= 0
         ? String.fromCharCode(65 + item.correctOptionIndex)
         : '?';
+    // Cùng bộ câu: truyền questionIds để detail load đúng đề/đáp án, không dùng partId.
+    final questionIds = questions.map((q) => q.id).toList();
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: partId.isEmpty
+        onTap: questions.isEmpty
             ? null
             : () => context.push('/exam/answer-detail', extra: {
                   'testId': testId,
                   'testTitle': partTitle,
                   'questionIndex': item.questionIndex,
                   'userAnswers': userAnswers,
-                  'partId': partId,
+                  'partId': partId.isNotEmpty ? partId : null,
+                  'questionIds': questionIds,
                 }),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -562,15 +563,6 @@ class PracticePartResultPage extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  /// Tổng số câu trong section (listening = part 1–4, reading = part 5–7) theo test.
-  static int? _sectionTotal(List<TestPartModel>? parts, String section) {
-    if (parts == null || parts.isEmpty) return null;
-    final isListening = section == 'listening';
-    return parts
-        .where((p) => isListening ? p.partNumber <= 4 : p.partNumber >= 5)
-        .fold<int>(0, (s, p) => s + p.questionCount);
   }
 
   static (String, Color) _evaluation(int percent) {
