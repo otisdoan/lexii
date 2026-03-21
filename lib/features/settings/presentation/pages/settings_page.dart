@@ -30,6 +30,7 @@ class SettingsPage extends ConsumerWidget {
         user?.email?.split('@').first ??
         'Người dùng';
     final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
+    final isLoggedIn = user != null;
 
     return Scaffold(
       backgroundColor: AppColors.slate100,
@@ -96,7 +97,14 @@ class SettingsPage extends ConsumerWidget {
                       email: user?.email,
                       isPremium: isPremium,
                       premiumLabel: premiumLabel,
-                      onLogout: () => _handleLogout(context),
+                      isLoggedIn: isLoggedIn,
+                      onActionTap: () {
+                        if (isLoggedIn) {
+                          _handleLogout(context);
+                          return;
+                        }
+                        context.go('/auth/signup');
+                      },
                     ),
                     const SizedBox(height: 24),
                     // Group 1: Account & Usage
@@ -113,6 +121,11 @@ class SettingsPage extends ConsumerWidget {
                             icon: Icons.menu_book_outlined,
                             label: 'Hướng dẫn sử dụng hiệu quả',
                             onTap: () => _showComingSoon(context),
+                          ),
+                          _SettingsItem(
+                            icon: Icons.history_edu_outlined,
+                            label: 'Lịch sử bài làm đề thi',
+                            onTap: () => context.push('/settings/test-history'),
                           ),
                           _SettingsItem(
                             icon: Icons.language_outlined,
@@ -305,7 +318,8 @@ class _ProfileSection extends StatelessWidget {
   final String? email;
   final bool isPremium;
   final String? premiumLabel;
-  final VoidCallback onLogout;
+  final bool isLoggedIn;
+  final VoidCallback onActionTap;
 
   const _ProfileSection({
     super.key,
@@ -314,7 +328,8 @@ class _ProfileSection extends StatelessWidget {
     required this.email,
     required this.isPremium,
     required this.premiumLabel,
-    required this.onLogout,
+    required this.isLoggedIn,
+    required this.onActionTap,
   });
 
   @override
@@ -403,10 +418,14 @@ class _ProfileSection extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             OutlinedButton(
-              onPressed: onLogout,
+              onPressed: onActionTap,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.orange500,
-                side: BorderSide(color: AppColors.orange500.withValues(alpha: 0.4)),
+                foregroundColor:
+                    isLoggedIn ? AppColors.orange500 : AppColors.primary,
+                side: BorderSide(
+                  color: (isLoggedIn ? AppColors.orange500 : AppColors.primary)
+                      .withValues(alpha: 0.4),
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -417,7 +436,7 @@ class _ProfileSection extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text('Đăng xuất'),
+              child: Text(isLoggedIn ? 'Đăng xuất' : 'Đăng nhập'),
             ),
           ],
         ),

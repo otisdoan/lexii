@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lexii/core/constants/app_constants.dart';
+import 'package:lexii/screens/splash_screen.dart';
 import 'package:lexii/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:lexii/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:lexii/features/home/presentation/pages/dashboard_page.dart';
+import 'package:lexii/features/home/presentation/pages/notifications_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_detail_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_part_intro_page.dart';
 import 'package:lexii/features/practice/presentation/pages/practice_part_result_page.dart';
@@ -23,6 +25,8 @@ import 'package:lexii/features/exam/presentation/pages/result_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_review_page.dart';
 import 'package:lexii/features/exam/presentation/pages/answer_detail_page.dart';
 import 'package:lexii/features/settings/presentation/pages/settings_page.dart';
+import 'package:lexii/features/settings/presentation/pages/test_attempt_detail_page.dart';
+import 'package:lexii/features/settings/presentation/pages/test_history_page.dart';
 import 'package:lexii/features/settings/presentation/pages/upgrade_page.dart';
 import 'package:lexii/features/settings/presentation/pages/payment_result_page.dart';
 import 'package:lexii/features/theory/presentation/pages/theory_page.dart';
@@ -32,12 +36,8 @@ class AppRouter {
   static late final GoRouter router;
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingCompleted =
-        prefs.getBool(AppConstants.onboardingCompletedKey) ?? false;
-
     router = GoRouter(
-      initialLocation: onboardingCompleted ? '/home' : '/onboarding',
+      initialLocation: '/splash',
       redirect: (context, state) {
         final uri = state.uri;
         if (uri.scheme != 'lexii') return null;
@@ -78,6 +78,18 @@ class AppRouter {
       },
       routes: [
         GoRoute(
+          path: '/splash',
+          name: 'splash',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const SplashScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+          ),
+        ),
+        GoRoute(
           path: '/onboarding',
           name: 'onboarding',
           pageBuilder: (context, state) => CustomTransitionPage(
@@ -116,6 +128,15 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const DashboardPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/home/notifications',
+          name: 'homeNotifications',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const NotificationsPage(),
+            transitionsBuilder: _slideRightTransition,
           ),
         ),
         // Practice part intro
@@ -265,6 +286,26 @@ class AppRouter {
           pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
             child: const SettingsPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/settings/test-history',
+          name: 'testHistory',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const TestHistoryPage(),
+            transitionsBuilder: _slideRightTransition,
+          ),
+        ),
+        GoRoute(
+          path: '/settings/test-history/:attemptId',
+          name: 'testAttemptDetail',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: TestAttemptDetailPage(
+              attemptId: state.pathParameters['attemptId'] ?? '',
+            ),
+            transitionsBuilder: _slideRightTransition,
           ),
         ),
         GoRoute(

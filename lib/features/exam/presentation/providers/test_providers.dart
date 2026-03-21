@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lexii/features/exam/data/models/attempt_history_model.dart';
 import 'package:lexii/features/exam/data/models/test_model.dart';
 import 'package:lexii/features/exam/data/models/question_model.dart';
 import 'package:lexii/features/exam/data/models/test_part_model.dart';
@@ -65,5 +66,19 @@ final questionsByIdsProvider =
     FutureProvider.family<List<QuestionModel>, List<String>>((ref, ids) async {
   final repo = ref.watch(questionRepositoryProvider);
   return repo.getQuestionsByIds(ids);
+});
+
+/// Provider for exam attempt history in settings.
+final attemptHistoryProvider =
+    FutureProvider.autoDispose.family<List<AttemptHistoryItemModel>, int>((ref, limit) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getUserAttemptHistory(limit: limit);
+});
+
+/// Provider for one attempt detail.
+final attemptDetailProvider =
+    FutureProvider.autoDispose.family<AttemptDetailModel?, String>((ref, attemptId) async {
+  final repo = ref.watch(questionRepositoryProvider);
+  return repo.getAttemptDetail(attemptId);
 });
 
