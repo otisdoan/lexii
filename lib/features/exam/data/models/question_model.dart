@@ -48,15 +48,19 @@ class QuestionModel {
     final optionsRaw = json['question_options'] as List<dynamic>? ?? [];
     final mediaRaw = json['question_media'] as List<dynamic>? ?? [];
 
+    final optionsList = optionsRaw
+        .map((o) => OptionModel.fromJson(o as Map<String, dynamic>))
+        .toList();
+    // Thứ tự options cố định theo id để đề và đáp án khớp khi load lại (userAnswers dùng index).
+    optionsList.sort((a, b) => a.id.compareTo(b.id));
+
     return QuestionModel(
       id: json['id'] as String,
       partId: json['part_id'] as String,
       passageId: json['passage_id'] as String?,
       questionText: json['question_text'] as String?,
       orderIndex: (json['order_index'] as num?)?.toInt() ?? 0,
-      options: optionsRaw
-          .map((o) => OptionModel.fromJson(o as Map<String, dynamic>))
-          .toList(),
+      options: optionsList,
       media: mediaRaw
           .map((m) => QuestionMediaModel.fromJson(m as Map<String, dynamic>))
           .toList(),

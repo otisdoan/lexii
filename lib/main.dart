@@ -10,7 +10,7 @@ import 'package:lexii/config/routes/app_router.dart';
 import 'package:lexii/config/supabase_config.dart';
 
 void _authLog(String message) {
-  debugPrint('[AUTH] $message');
+  // Logging disabled for cleaner terminal
 }
 
 void main() async {

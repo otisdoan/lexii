@@ -371,8 +371,9 @@ class PracticePartResultPage extends ConsumerWidget {
             )
           else
             ...wrongItems.take(5).map(
-                  (item) => _buildWrongItem(context, item),
+                  (item) => _buildWrongItem(context, item, questions),
                 ),
+          // Luôn truyền questionIds từ list đang xem để review/chi tiết dùng cùng bộ câu (không load lại bằng partId).
           if (questions.isNotEmpty)
             Material(
               color: const Color(0xFFFFFBEB),
@@ -414,21 +415,25 @@ class PracticePartResultPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildWrongItem(BuildContext context, _WrongItem item) {
+  Widget _buildWrongItem(
+      BuildContext context, _WrongItem item, List<QuestionModel> questions) {
     final letter = item.correctOptionIndex >= 0
         ? String.fromCharCode(65 + item.correctOptionIndex)
         : '?';
+    // Cùng bộ câu: truyền questionIds để detail load đúng đề/đáp án, không dùng partId.
+    final questionIds = questions.map((q) => q.id).toList();
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: partId.isEmpty
+        onTap: questions.isEmpty
             ? null
             : () => context.push('/exam/answer-detail', extra: {
                   'testId': testId,
                   'testTitle': partTitle,
                   'questionIndex': item.questionIndex,
                   'userAnswers': userAnswers,
-                  'partId': partId,
+                  'partId': partId.isNotEmpty ? partId : null,
+                  'questionIds': questionIds,
                 }),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

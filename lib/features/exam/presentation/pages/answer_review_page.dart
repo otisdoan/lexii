@@ -207,6 +207,11 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
     );
   }
 
+  /// Số thứ tự hiển thị: luôn theo vị trí trong list (1, 2, 3...) để Part 1: Câu 1,2,3 → Part 2: Câu 4,5,6...
+  int _displayQuestionNumber(_QuestionWithIndex qi) {
+    return qi.globalIndex + 1;
+  }
+
   Widget _buildQuestionList(
       BuildContext context, List<QuestionModel> allQuestions, String section) {
     final isPracticeScoped =
@@ -217,36 +222,111 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
       return const SizedBox.shrink();
     }
 
-    // Determine which parts belong to this section
     final isListening = section == 'listening';
 
-    // Group by part
+    // Luyện tập: giữ đúng thứ tự câu như lúc làm bài (Câu 1→1, Câu 2→2), không nhóm theo partId.
+    if (isPracticeScoped) {
+      final totalN = allQuestions.length;
+      final ordered = <_QuestionWithIndex>[
+        for (int i = 0; i < allQuestions.length; i++)
+          _QuestionWithIndex(allQuestions[i], i),
+      ];
+      final filtered = ordered.where((qi) {
+        final selectedIdx = widget.userAnswers[qi.globalIndex];
+        if (_filter == 'correct') {
+          return selectedIdx != null &&
+              selectedIdx < qi.question.options.length &&
+              qi.question.options[selectedIdx].isCorrect;
+        } else if (_filter == 'wrong') {
+          if (selectedIdx == null) return true;
+          return selectedIdx >= qi.question.options.length ||
+              !qi.question.options[selectedIdx].isCorrect;
+        }
+        return true;
+      }).toList();
+
+      if (filtered.isEmpty && _filter != 'all') {
+        return const SizedBox.shrink();
+      }
+
+      return ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...filtered.map((qi) {
+                  final displayNumber = qi.globalIndex + 1;
+                  return _buildQuestionItem(
+                    context,
+                    qi,
+                    allQuestions,
+                    displayNumber: displayNumber,
+                    totalForDisplay: totalN,
+                  );
+                }),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     final partGroups = <String, List<_QuestionWithIndex>>{};
     for (int i = 0; i < allQuestions.length; i++) {
       final q = allQuestions[i];
       partGroups.putIfAbsent(q.partId, () => []).add(_QuestionWithIndex(q, i));
     }
 
-    // Split by section (first 4 parts = listening, rest = reading)
     final allPartIds = partGroups.keys.toList();
-    final sectionPartIds = isPracticeScoped
-      ? allPartIds
-      : (isListening
+    allPartIds.sort((a, b) {
+      final minA = partGroups[a]!
+          .map((e) => e.globalIndex)
+          .reduce((x, y) => x < y ? x : y);
+      final minB = partGroups[b]!
+          .map((e) => e.globalIndex)
+          .reduce((x, y) => x < y ? x : y);
+      return minA.compareTo(minB);
+    });
+
+    final sectionPartIds = isListening
         ? allPartIds.take(4.clamp(0, allPartIds.length)).toList()
-        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList());
+        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList();
 
     final partNames = isListening
         ? [
             'Part 1: Mô Tả Hình Ảnh',
             'Part 2: Hỏi & Đáp',
             'Part 3: Đoạn Hội Thoại',
-            'Part 4: Bài Nói Ngắn'
+            'Part 4: Bài Nói Ngắn',
           ]
         : [
             'Part 5: Hoàn Thành Câu',
             'Part 6: Hoàn Thành Đoạn Văn',
-            'Part 7: Đọc Hiểu Đoạn Văn'
+            'Part 7: Đọc Hiểu Đoạn Văn',
           ];
+
+    final totalQuestionsInSection = sectionPartIds.fold<int>(
+      0,
+      (sum, pid) => sum + (partGroups[pid]?.length ?? 0),
+    );
+    final totalPartsInSection = sectionPartIds.length.clamp(1, 100);
+    final chunkSize = (totalQuestionsInSection / totalPartsInSection).floor();
+    final safeChunkSize = chunkSize > 0 ? chunkSize : 1;
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -255,7 +335,6 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
         final partId = sectionPartIds[partIdx];
         final questionsInPart = partGroups[partId]!;
 
-        // Apply filter
         final filtered = questionsInPart.where((qi) {
           final selectedIdx = widget.userAnswers[qi.globalIndex];
           if (_filter == 'correct') {
@@ -263,7 +342,7 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
                 selectedIdx < qi.question.options.length &&
                 qi.question.options[selectedIdx].isCorrect;
           } else if (_filter == 'wrong') {
-            if (selectedIdx == null) return true; // skipped = wrong
+            if (selectedIdx == null) return true;
             return selectedIdx >= qi.question.options.length ||
                 !qi.question.options[selectedIdx].isCorrect;
           }
@@ -277,6 +356,8 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
         final name = partIdx < partNames.length
             ? partNames[partIdx]
             : 'Part ${partIdx + (isListening ? 1 : 5)}';
+
+        final baseNumber = partIdx * safeChunkSize + 1;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -318,8 +399,18 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
                   ],
                 ),
               ),
-              ...filtered.map((qi) =>
-                  _buildQuestionItem(context, qi, allQuestions)),
+              ...filtered.asMap().entries.map((entry) {
+                final localIndexInPart = entry.key;
+                final qi = entry.value;
+                final displayNumber = baseNumber + localIndexInPart;
+                return _buildQuestionItem(
+                  context,
+                  qi,
+                  allQuestions,
+                  displayNumber: displayNumber,
+                  totalForDisplay: totalQuestionsInSection,
+                );
+              }),
               const SizedBox(height: 4),
             ],
           ),
@@ -328,10 +419,16 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
     );
   }
 
-  Widget _buildQuestionItem(BuildContext context, _QuestionWithIndex qi,
-      List<QuestionModel> allQuestions) {
+  Widget _buildQuestionItem(
+    BuildContext context,
+    _QuestionWithIndex qi,
+    List<QuestionModel> allQuestions, {
+    required int displayNumber,
+    required int totalForDisplay,
+  }) {
     final q = qi.question;
-    final selectedIdx = widget.userAnswers[qi.globalIndex];
+    final localIndex = qi.globalIndex;
+    final selectedIdx = widget.userAnswers[localIndex];
     final isSkipped = selectedIdx == null;
     final isCorrect = !isSkipped &&
         selectedIdx < q.options.length &&
@@ -373,6 +470,10 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
             'testTitle': widget.testTitle,
             'questionIndex': qi.globalIndex,
             'userAnswers': widget.userAnswers,
+            'partId': widget.partId,
+            'questionIds': widget.questionIds,
+            'displayNumber': displayNumber,
+            'totalForDisplay': totalForDisplay,
           });
         },
         child: Padding(
@@ -399,7 +500,7 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Câu ${qi.question.orderIndex}',
+                  'Câu $displayNumber',
                   style: GoogleFonts.lexend(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

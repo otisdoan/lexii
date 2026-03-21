@@ -622,9 +622,7 @@ class _ListeningQuestionPageState
         ref.invalidate(listeningPracticePartsProvider);
         ref.invalidate(wrongListeningQuestionIdsProvider);
       }
-    } catch (e) {
-      debugPrint('Failed to save attempt: $e');
-    }
+    } catch (_) {}
 
     if (!mounted) return;
 
@@ -944,6 +942,10 @@ class _ListeningQuestionPageState
               widget.questionLimit! < questions.length) {
             questions = questions.sublist(0, widget.questionLimit!);
           }
+          // Sau khi chọn bộ câu ngẫu nhiên, sắp xếp lại theo thứ tự gốc trong đề
+          questions.sort(
+            (a, b) => a.orderIndex.compareTo(b.orderIndex),
+          );
           if (questions.isEmpty) {
             return Center(
               child: Column(

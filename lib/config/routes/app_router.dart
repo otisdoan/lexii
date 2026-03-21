@@ -468,6 +468,9 @@ class AppRouter {
                 questionIndex: extra['questionIndex'] as int? ?? 0,
                 userAnswers: (extra['userAnswers'] as Map<int, int>?) ?? {},
                 partId: extra['partId'] as String?,
+                questionIds: (extra['questionIds'] as List?)?.cast<String>(),
+                displayNumber: extra['displayNumber'] as int?,
+                totalForDisplay: extra['totalForDisplay'] as int?,
               ),
               transitionsBuilder: _slideRightTransition,
             );

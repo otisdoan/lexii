@@ -15,6 +15,11 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
   final Map<int, int> userAnswers;
   /// When set, loads only this part's questions (practice mode).
   final String? partId;
+  /// When set, loads these questions in order (practice mode from answer-review).
+  final List<String>? questionIds;
+  /// Số câu hiển thị (khớp với list "Xem tất cả đáp án"). Khi set, header dùng displayNumber/totalForDisplay.
+  final int? displayNumber;
+  final int? totalForDisplay;
 
   const AnswerDetailPage({
     super.key,
@@ -23,6 +28,9 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
     required this.questionIndex,
     this.userAnswers = const {},
     this.partId,
+    this.questionIds,
+    this.displayNumber,
+    this.totalForDisplay,
   });
 
   @override
@@ -68,9 +76,11 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = widget.partId != null
-        ? ref.watch(questionsByPartIdProvider(widget.partId!))
-        : ref.watch(questionsByTestIdProvider(widget.testId));
+    final questionsAsync = widget.questionIds != null && widget.questionIds!.isNotEmpty
+        ? ref.watch(questionsByIdsProvider(widget.questionIds!))
+        : widget.partId != null
+            ? ref.watch(questionsByPartIdProvider(widget.partId!))
+            : ref.watch(questionsByTestIdProvider(widget.testId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -87,6 +97,18 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
           final q = questions[_currentIndex];
           final selectedIdx = widget.userAnswers[_currentIndex];
           final totalQ = questions.length;
+          // Ưu tiên số truyền từ list (displayNumber/totalForDisplay) để khớp đề và đáp án
+          final int headerNum;
+          final int headerTotal;
+          if (widget.displayNumber != null && widget.totalForDisplay != null) {
+            headerNum = widget.displayNumber!;
+            headerTotal = widget.totalForDisplay!;
+          } else {
+            final isPracticeScoped = widget.partId != null ||
+                (widget.questionIds != null && widget.questionIds!.isNotEmpty);
+            headerNum = isPracticeScoped ? _currentIndex + 1 : q.orderIndex;
+            headerTotal = totalQ;
+          }
 
           // Auto-load audio
           if (q.audioUrl != null && _duration == Duration.zero) {
@@ -97,7 +119,7 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
           return Column(
             children: [
-              _buildHeader(context, q.orderIndex, totalQ),
+              _buildHeader(context, headerNum, headerTotal),
               _buildAudioBar(q),
               Expanded(
                 child: Stack(
