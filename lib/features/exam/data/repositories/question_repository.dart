@@ -161,7 +161,7 @@ class QuestionRepository {
       final testIds = testsResponse.map((t) => t['id'] as String).toList();
       final partsResponse = await _client
           .from('test_parts')
-          .select('id')
+          .select('id, test_id')
           .inFilter('test_id', testIds)
           .eq('part_number', partNumber) as List<dynamic>;
       if (partsResponse.isEmpty) return [];
@@ -198,11 +198,41 @@ class QuestionRepository {
         }
       }
 
-      return response.map((json) {
+      final testOrder = <String, int>{};
+      for (int i = 0; i < testIds.length; i++) {
+        testOrder[testIds[i]] = i;
+      }
+      
+      final partToTest = <String, String>{};
+      for (final p in partsResponse) {
+        partToTest[p['id'] as String] = p['test_id'] as String;
+      }
+
+      final result = response.map((json) {
         final q = QuestionModel.fromJson(json);
         final content = q.passageId != null ? passageMap[q.passageId] : null;
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
+
+      result.sort((a, b) {
+        final testA = partToTest[a.partId] ?? '';
+        final testB = partToTest[b.partId] ?? '';
+        final orderA = testOrder[testA] ?? 0;
+        final orderB = testOrder[testB] ?? 0;
+        if (orderA != orderB) return orderA.compareTo(orderB);
+
+        final audioA = a.audioUrl ?? '';
+        final audioB = b.audioUrl ?? '';
+        if (audioA != audioB) {
+          if (audioA.isNotEmpty && audioB.isEmpty) return -1;
+          if (audioA.isEmpty && audioB.isNotEmpty) return 1;
+          return audioA.compareTo(audioB);
+        }
+
+        return a.orderIndex.compareTo(b.orderIndex);
+      });
+
+      return result;
     } catch (e, stack) {
       developer.log('Error fetching listening part questions: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);
@@ -223,7 +253,7 @@ class QuestionRepository {
       final testIds = testsResponse.map((t) => t['id'] as String).toList();
       final partsResponse = await _client
           .from('test_parts')
-          .select('id')
+          .select('id, test_id')
           .inFilter('test_id', testIds)
           .eq('part_number', partNumber) as List<dynamic>;
       if (partsResponse.isEmpty) return [];
@@ -260,11 +290,41 @@ class QuestionRepository {
         }
       }
 
-      return response.map((json) {
+      final testOrder = <String, int>{};
+      for (int i = 0; i < testIds.length; i++) {
+        testOrder[testIds[i]] = i;
+      }
+      
+      final partToTest = <String, String>{};
+      for (final p in partsResponse) {
+        partToTest[p['id'] as String] = p['test_id'] as String;
+      }
+
+      final result = response.map((json) {
         final q = QuestionModel.fromJson(json);
         final content = q.passageId != null ? passageMap[q.passageId] : null;
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
+
+      result.sort((a, b) {
+        final testA = partToTest[a.partId] ?? '';
+        final testB = partToTest[b.partId] ?? '';
+        final orderA = testOrder[testA] ?? 0;
+        final orderB = testOrder[testB] ?? 0;
+        if (orderA != orderB) return orderA.compareTo(orderB);
+
+        final pA = a.passageId ?? '';
+        final pB = b.passageId ?? '';
+        if (pA != pB) {
+          if (pA.isNotEmpty && pB.isEmpty) return -1;
+          if (pA.isEmpty && pB.isNotEmpty) return 1;
+          return pA.compareTo(pB);
+        }
+
+        return a.orderIndex.compareTo(b.orderIndex);
+      });
+
+      return result;
     } catch (e, stack) {
       developer.log('Error fetching reading part questions: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);
@@ -288,8 +348,7 @@ class QuestionRepository {
             question_options (id, content, is_correct),
             question_media (id, type, url)
           ''')
-          .inFilter('id', questionIds)
-          .order('order_index', ascending: true) as List<dynamic>;
+          .inFilter('id', questionIds) as List<dynamic>;
 
       final passageIds = response
           .map((q) => q['passage_id'] as String?)
@@ -308,11 +367,24 @@ class QuestionRepository {
         }
       }
 
-      return response.map((json) {
+      final result = response.map((json) {
         final q = QuestionModel.fromJson(json);
         final content = q.passageId != null ? passageMap[q.passageId] : null;
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
+
+      final indexMap = <String, int>{};
+      for (int i = 0; i < questionIds.length; i++) {
+        indexMap[questionIds[i]] = i;
+      }
+
+      result.sort((a, b) {
+        final idxA = indexMap[a.id] ?? 999999;
+        final idxB = indexMap[b.id] ?? 999999;
+        return idxA.compareTo(idxB);
+      });
+
+      return result;
     } catch (e, stack) {
       developer.log('Error fetching questions by ids: $e',
           name: 'QuestionRepo', error: e, stackTrace: stack);

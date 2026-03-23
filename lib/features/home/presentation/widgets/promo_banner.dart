@@ -3,12 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 
 class PromoBanner extends StatelessWidget {
-  const PromoBanner({super.key});
+  final String ctaLabel;
+  final VoidCallback? onCtaTap;
+
+  const PromoBanner({super.key, required this.ctaLabel, this.onCtaTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-    width: double.infinity,
+      width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -19,10 +22,8 @@ class PromoBanner extends StatelessWidget {
             AppColors.primary.withValues(alpha: 0.05),
           ],
         ),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.1),
-        ),
-    
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.1),
@@ -35,18 +36,13 @@ class PromoBanner extends StatelessWidget {
         children: [
           // Background icon
           Positioned(
-          
             top: 0,
             right: 0,
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Opacity(
                 opacity: 0.1,
-                child: Icon(
-                  Icons.school,
-                  size: 80,
-                  color: AppColors.primary,
-                ),
+                child: Icon(Icons.school, size: 80, color: AppColors.primary),
               ),
             ),
           ),
@@ -143,7 +139,7 @@ class PromoBanner extends StatelessWidget {
                   elevation: 4,
                   shadowColor: AppColors.primary.withValues(alpha: 0.3),
                   child: InkWell(
-                    onTap: () {},
+                    onTap: onCtaTap,
                     borderRadius: BorderRadius.circular(9999),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -154,7 +150,7 @@ class PromoBanner extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Nâng cấp ngay',
+                            ctaLabel,
                             style: GoogleFonts.lexend(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,

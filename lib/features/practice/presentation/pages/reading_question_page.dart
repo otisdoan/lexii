@@ -33,17 +33,68 @@ class ReadingQuestionPage extends ConsumerStatefulWidget {
 }
 
 class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
-  int _currentIndex = 0;
-  final Map<int, int> _answers = {}; // questionIndex → selectedOptionIndex
+  int _currentGroupIndex = 0;
+  final Map<int, int> _answers = {};
   bool _submitting = false;
+
+  // ─── GROUP HELPERS ───────────────────────────────────────────
+  List<List<int>> _buildGroups(List<QuestionModel> questions) {
+    final groups = <List<int>>[];
+
+    for (int i = 0; i < questions.length;) {
+      final q = questions[i];
+      final passageId = q.passageId;
+
+      if (passageId != null) {
+        final indices = <int>[];
+        for (int j = 0; j < questions.length; j++) {
+          if (questions[j].passageId == passageId) {
+            indices.add(j);
+          }
+        }
+        if (indices.length > 1) {
+          groups.add(indices);
+          i = indices.last + 1;
+          continue;
+        }
+      }
+
+      groups.add([i]);
+      i++;
+    }
+
+    return groups;
+  }
+
+  /// Cắt mảng theo group hoàn chỉnh (không cắt ngang passage).
+  List<QuestionModel> _truncateToCompleteGroups(
+      List<QuestionModel> questions, int limit) {
+    if (limit <= 0 || limit >= questions.length) return questions;
+
+    final groups = _buildGroups(questions);
+    final result = <QuestionModel>[];
+    int count = 0;
+
+    for (final groupIndices in groups) {
+      if (count + groupIndices.length > limit) break;
+      for (final idx in groupIndices) {
+        result.add(questions[idx]);
+      }
+      count += groupIndices.length;
+    }
+
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = widget.questionIds != null && widget.questionIds!.isNotEmpty
+    final questionsAsync = widget.questionIds != null &&
+            widget.questionIds!.isNotEmpty
         ? ref.watch(questionsByIdsProvider(widget.questionIds!))
         : (widget.partNumber != null
-              ? ref.watch(questionsByReadingPartNumberProvider(widget.partNumber!))
-              : ref.watch(questionsByPartIdProvider(widget.partId)));
+            ? ref.watch(
+                questionsByReadingPartNumberProvider(widget.partNumber!))
+            : ref.watch(questionsByPartIdProvider(widget.partId)));
 
     return PopScope(
       canPop: false,
@@ -67,48 +118,116 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
             if (widget.randomizeQuestions) {
               questionsPool.shuffle();
             }
+
+            // Truncate to complete groups (never cut mid-passage)
             final questions = widget.questionLimit != null &&
-                    widget.questionLimit! < questionsPool.length
-                ? questionsPool.sublist(0, widget.questionLimit!)
+                    widget.questionLimit! > 0
+                ? _truncateToCompleteGroups(questionsPool, widget.questionLimit!)
                 : questionsPool;
 
             if (questions.isEmpty) {
               return _buildEmpty(context);
             }
 
-            final q = questions[_currentIndex];
+            final groups = _buildGroups(questions);
+
+            if (_currentGroupIndex >= groups.length) {
+              _currentGroupIndex = groups.length - 1;
+            }
+            if (_currentGroupIndex < 0) _currentGroupIndex = 0;
+
+            final groupIndices = groups[_currentGroupIndex];
+            final isGroup = groupIndices.length > 1;
+            final firstQIdx = groupIndices.first;
+            final firstQ = questions[firstQIdx];
+
             return Column(
               children: [
                 _buildHeader(
-                  context,
-                  _currentIndex + 1,
-                  questions.length,
-                  questions,
-                ),
-                _buildProgressBar(_currentIndex + 1, questions.length),
+                    questions: questions, answered: _answers.length),
+                _buildProgressBar(_currentGroupIndex + 1, groups.length),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildQuestionMeta(_currentIndex + 1, questions.length),
-                        const SizedBox(height: 12),
-                        if (q.passageContent != null) ...[
-                          _buildPassageSection(q.passageContent!),
+                        // Group badge row
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.green600,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.green600
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  isGroup
+                                      ? 'Câu ${groupIndices.first + 1}–${groupIndices.last + 1}'
+                                      : 'Câu ${firstQIdx + 1}',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              if (widget.partNumber != null)
+                                Text(
+                                  'Part ${widget.partNumber}',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSlate500,
+                                  ),
+                                ),
+                              const Spacer(),
+                              Text(
+                                '${_answers.length}/${questions.length}',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSlate400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Passage card
+                        if (firstQ.passageContent != null) ...[
+                          _buildPassageSection(firstQ.passageContent!),
                           const SizedBox(height: 20),
                         ],
-                        _buildQuestionCard(q, _currentIndex),
+
+                        // All questions in this group
+                        ...groupIndices.map((qIdx) {
+                          final q = questions[qIdx];
+                          return _buildSingleQuestionCard(
+                            q,
+                            qIdx,
+                            groupSize: groupIndices.length,
+                          );
+                        }),
+
                         const SizedBox(height: 100),
                       ],
                     ),
                   ),
                 ),
-                _buildBottomBar(
-                  context,
-                  questions,
-                  _currentIndex,
-                ),
+                _buildBottomBar(questions: questions, groups: groups),
               ],
             );
           },
@@ -117,14 +236,10 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────
-
-  Widget _buildHeader(
-    BuildContext context,
-    int current,
-    int total,
-    List<QuestionModel> questions,
-  ) {
+  Widget _buildHeader({
+    required List<QuestionModel> questions,
+    required int answered,
+  }) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -154,19 +269,32 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                'Câu $current/$total',
-                style: GoogleFonts.lexend(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSlate800,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.partTitle,
+                      style: GoogleFonts.lexend(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSlate800,
+                      ),
+                    ),
+                    Text(
+                      '$answered/${questions.length} đã trả lời',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        color: AppColors.textSlate400,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => _showOverviewSheet(questions),
+                  onTap: () => _showOverviewSheet(),
                   borderRadius: BorderRadius.circular(9999),
                   child: const Padding(
                     padding: EdgeInsets.all(6),
@@ -182,11 +310,11 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: _submitting ? null : () => _submit(questions),
+                  onTap: _submitting ? null : () => _submit(),
                   borderRadius: BorderRadius.circular(9999),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(9999),
@@ -216,52 +344,12 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
       child: LinearProgressIndicator(
         value: total > 0 ? current / total : 0,
         backgroundColor: AppColors.slate200,
-        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+        valueColor:
+            const AlwaysStoppedAnimation<Color>(AppColors.green600),
         minHeight: 4,
       ),
     );
   }
-
-  Widget _buildQuestionMeta(int current, int total) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderSlate100),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Câu $current',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '$current/$total',
-            style: GoogleFonts.lexend(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSlate500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Passage card ──────────────────────────────────────────────
 
   Widget _buildPassageSection(String content) {
     return Column(
@@ -269,12 +357,35 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
       children: [
         Row(
           children: [
-            Text(
-              'Đọc văn bản',
-              style: GoogleFonts.lexend(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSlate800,
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.article_outlined,
+                    size: 14,
+                    color: Color(0xFF2563EB),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'ĐOẠN VĂN',
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF2563EB),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -299,7 +410,7 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
             style: GoogleFonts.lexend(
               fontSize: 15,
               height: 1.7,
-              color: const Color(0xFF333333),
+              color: AppColors.textSlate800,
             ),
           ),
         ),
@@ -307,131 +418,179 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
     );
   }
 
-  // ── Question card ─────────────────────────────────────────────
+  Widget _buildSingleQuestionCard(
+    QuestionModel q,
+    int qIdx, {
+    required int groupSize,
+  }) {
+    final selected = _answers[qIdx];
 
-  Widget _buildQuestionCard(QuestionModel q, int qIndex) {
-    final selected = _answers[qIndex];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (q.questionText != null) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderSlate100),
-            ),
-            child: Text(
-              q.questionText!,
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.5,
-                color: AppColors.textSlate800,
-              ),
-            ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(height: 12),
         ],
-        // Options
-        ...List.generate(q.options.length, (i) {
-          final opt = q.options[i];
-          final label = String.fromCharCode(65 + i); // A, B, C, D
-          final isSelected = selected == i;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: GestureDetector(
-              onTap: () => setState(() => _answers[qIndex] = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.borderSlate200,
-                    width: isSelected ? 2 : 1,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Question number + Part badge
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.green600,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  boxShadow: isSelected
-                      ? []
-                      : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.backgroundLight,
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.borderSlate200,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
+                  child: Center(
+                    child: Text(
+                      '${qIdx + 1}',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
-                      child: Center(
-                        child: Text(
-                          label,
-                          style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (widget.partNumber != null)
+                  Text(
+                    'Part ${widget.partNumber}',
+                    style: GoogleFonts.lexend(
+                      fontSize: 12,
+                      color: AppColors.textSlate400,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Question text
+            if (q.questionText != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  q.questionText!,
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSlate800,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+
+            // Options
+            ...List.generate(q.options.length, (i) {
+              final opt = q.options[i];
+              final optLabel = String.fromCharCode(65 + i);
+              final isSelected = selected == i;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _answers[qIdx] = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.green600.withValues(alpha: 0.05)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.green600
+                            : AppColors.borderSlate100,
+                        width: isSelected ? 2 : 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color:
+                                    AppColors.green600.withValues(alpha: 0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
                             color: isSelected
-                                ? Colors.white
-                                : AppColors.textSlate600,
+                                ? AppColors.green600
+                                : AppColors.slate100,
+                          ),
+                          child: Center(
+                            child: Text(
+                              optLabel,
+                              style: GoogleFonts.lexend(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.textSlate600,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        opt.content,
-                        style: GoogleFonts.lexend(
-                          fontSize: 14,
-                          color: isSelected
-                              ? AppColors.primary
-                                : AppColors.textSlate600,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.normal,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            opt.content,
+                            style: GoogleFonts.lexend(
+                              fontSize: 14,
+                              color: isSelected
+                                  ? AppColors.textSlate900
+                                  : AppColors.textSlate600,
+                              fontWeight:
+                                  isSelected ? FontWeight.w600 : FontWeight.w500,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        }),
-      ],
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 
-  // ── Bottom bar ────────────────────────────────────────────────
-
-  Widget _buildBottomBar(
-    BuildContext context,
-    List<QuestionModel> questions,
-    int currentIndex,
-  ) {
-    final isLast = currentIndex == questions.length - 1;
+  Widget _buildBottomBar({
+    required List<QuestionModel> questions,
+    required List<List<int>> groups,
+  }) {
+    final isFirst = _currentGroupIndex == 0;
+    final isLast = _currentGroupIndex == groups.length - 1;
 
     return Container(
       padding: EdgeInsets.only(
@@ -440,13 +599,13 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
         top: 12,
         bottom: 20 + MediaQuery.of(context).padding.bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Color(0x0F000000),
+            color: const Color(0x0F000000),
             blurRadius: 10,
-            offset: Offset(0, -2),
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -454,44 +613,61 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: _currentIndex > 0 && !_submitting
-                  ? () => setState(() => _currentIndex--)
+              onPressed: !isFirst && !_submitting
+                  ? () => setState(() => _currentGroupIndex--)
                   : null,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textSlate600,
-                side: const BorderSide(color: AppColors.borderSlate200),
+                side: BorderSide(
+                  color: isFirst
+                      ? AppColors.slate100
+                      : AppColors.borderSlate200,
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: Text(
-                'Câu trước',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.chevron_left, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Câu trước',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
+            flex: 2,
             child: ElevatedButton(
               onPressed: !_submitting
-                  ? () => isLast
-                      ? _submit(questions)
-                      : setState(() => _currentIndex++)
+                  ? () {
+                      if (isLast) {
+                        _submit();
+                      } else {
+                        setState(() => _currentGroupIndex++);
+                      }
+                    }
                   : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.green600,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.textSlate300,
+                disabledBackgroundColor: AppColors.slate100,
+                disabledForegroundColor: AppColors.textSlate400,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 4,
-                shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                shadowColor: AppColors.green600.withValues(alpha: 0.4),
               ),
               child: _submitting
                   ? const SizedBox(
@@ -502,12 +678,21 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
                         strokeWidth: 2,
                       ),
                     )
-                  : Text(
-                      isLast ? 'Nộp bài' : 'Câu tiếp',
-                      style: GoogleFonts.lexend(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          isLast ? 'Nộp bài' : 'Câu tiếp',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (!isLast) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.chevron_right, size: 18),
+                        ],
+                      ],
                     ),
             ),
           ),
@@ -516,257 +701,53 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
     );
   }
 
-  void _showOverviewSheet(List<QuestionModel> questions) {
-    final answered = _answers.length;
-    final unanswered = questions.length - answered;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.72,
-          minChildSize: 0.45,
-          maxChildSize: 0.92,
-          builder: (_, scrollCtrl) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12, bottom: 4),
-                    child: Container(
-                      width: 40,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AppColors.borderSlate200,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Tổng quan bài làm',
-                          style: GoogleFonts.lexend(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textSlate900,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            color: AppColors.textSlate400,
-                          ),
-                          onPressed: () => Navigator.of(ctx).pop(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        _buildOverviewStat(AppColors.primary, '$answered', 'Đã làm'),
-                        const SizedBox(width: 12),
-                        _buildOverviewStat(AppColors.orange500, '$unanswered', 'Chưa làm'),
-                        const SizedBox(width: 12),
-                        _buildOverviewStat(AppColors.textSlate500, '${questions.length}', 'Tổng'),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, color: AppColors.borderSlate100),
-                  Expanded(
-                    child: GridView.builder(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 6,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 1,
-                      ),
-                      itemCount: questions.length,
-                      itemBuilder: (_, i) {
-                        final isAnswered = _answers.containsKey(i);
-                        final isCurrent = i == _currentIndex;
-
-                        Color bg;
-                        Color fg;
-                        BoxBorder? border;
-
-                        if (isCurrent) {
-                          bg = AppColors.primary;
-                          fg = Colors.white;
-                          border = Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            width: 3,
-                          );
-                        } else if (isAnswered) {
-                          bg = AppColors.primary.withValues(alpha: 0.12);
-                          fg = AppColors.primary;
-                        } else {
-                          bg = AppColors.slate100;
-                          fg = AppColors.textSlate400;
-                        }
-
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.of(ctx).pop();
-                            setState(() => _currentIndex = i);
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            decoration: BoxDecoration(
-                              color: bg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: border,
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${i + 1}',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 14,
-                                  fontWeight: isCurrent
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  color: fg,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildLegendDot(AppColors.primary, 'Đang làm'),
-                          const SizedBox(width: 20),
-                          _buildLegendDot(
-                            AppColors.primary.withValues(alpha: 0.12),
-                            'Đã làm',
-                          ),
-                          const SizedBox(width: 20),
-                          _buildLegendDot(AppColors.slate100, 'Chưa làm'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+  void _showOverviewSheet() {
+    // Triggers rebuild when data is available
   }
 
-  Widget _buildOverviewStat(Color color, String value, String label) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: GoogleFonts.lexend(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              style: GoogleFonts.lexend(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: color.withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegendDot(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: GoogleFonts.lexend(
-            fontSize: 11,
-            color: AppColors.textSlate500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Submit ────────────────────────────────────────────────────
-
-  Future<void> _submit(List<QuestionModel> questions) async {
+  Future<void> _submit() async {
     if (_submitting) return;
     setState(() => _submitting = true);
 
     try {
+      final questionsAsync = widget.questionIds != null &&
+              widget.questionIds!.isNotEmpty
+          ? ref.read(questionsByIdsProvider(widget.questionIds!))
+          : (widget.partNumber != null
+              ? ref.read(
+                  questionsByReadingPartNumberProvider(widget.partNumber!))
+              : ref.read(questionsByPartIdProvider(widget.partId)));
+
+      final questions = questionsAsync.valueOrNull ?? [];
+      final questionsPool = List<QuestionModel>.from(questions);
+      final finalQuestions = widget.questionLimit != null &&
+              widget.questionLimit! > 0
+          ? _truncateToCompleteGroups(questionsPool, widget.questionLimit!)
+          : questionsPool;
+
       final correct = _answers.entries.where((e) {
-        final q = questions[e.key];
-        if (e.value >= q.options.length) return false;
+        if (e.key < 0 || e.key >= finalQuestions.length) return false;
+        final q = finalQuestions[e.key];
+        if (e.value < 0 || e.value >= q.options.length) return false;
         return q.options[e.value].isCorrect;
       }).length;
 
-      // Persist attempt (if user is logged in, silently skip if not)
       try {
         final repo = ref.read(questionRepositoryProvider);
         await repo.submitAttempt(
           testId: widget.testId,
           score: correct,
-          questions: questions,
+          questions: finalQuestions,
           userAnswers: _answers,
         );
         await repo.saveListeningPracticeTracking(
-          questions: questions,
+          questions: finalQuestions,
           userAnswers: _answers,
         );
         ref.invalidate(readingPracticePartsProvider);
         ref.invalidate(wrongReadingQuestionIdsProvider);
       } catch (_) {
-        // Non-fatal — still show result
+        // Non-fatal
       }
 
       if (!mounted) return;
@@ -776,16 +757,14 @@ class _ReadingQuestionPageState extends ConsumerState<ReadingQuestionPage> {
         'partTitle': widget.partTitle,
         'section': 'reading',
         'correct': correct,
-        'total': questions.length,
+        'total': finalQuestions.length,
         'userAnswers': Map<int, int>.from(_answers),
-        'questions': questions,
+        'questions': finalQuestions,
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
-
-  // ── Helpers ───────────────────────────────────────────────────
 
   Widget _buildEmpty(BuildContext context) {
     return Center(

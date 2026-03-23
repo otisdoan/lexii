@@ -20,6 +20,8 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
     with SingleTickerProviderStateMixin {
   final PaymentVerificationService _verificationService =
       PaymentVerificationService();
+  static const int _maxVerifyAttempts = 5;
+  static const Duration _verifyRetryDelay = Duration(milliseconds: 1500);
 
   bool _isVerifying = false;
   PaymentVerificationResult? _verificationResult;
@@ -42,9 +44,9 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    if (_resolvedStatus == 'success' &&
-        widget.orderCode != null &&
-        widget.orderCode!.isNotEmpty) {
+    final hasOrderCode =
+        widget.orderCode != null && widget.orderCode!.isNotEmpty;
+    if (hasOrderCode && _resolvedStatus != 'cancel') {
       _verifyPayment();
     }
   }
@@ -57,11 +59,51 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
 
   Future<void> _verifyPayment() async {
     if (_isVerifying) return;
+    final orderCode = widget.orderCode;
+    if (orderCode == null || orderCode.isEmpty) {
+      setState(() {
+        _resolvedStatus = 'failed';
+        _verificationResult = const PaymentVerificationResult(
+          status: 'error',
+          message: 'Khong tim thay ma don hang de xac nhan.',
+        );
+      });
+      return;
+    }
+
     setState(() => _isVerifying = true);
 
-    final result = await _verificationService.verifyPayment(widget.orderCode!);
+    PaymentVerificationResult? finalResult;
+
+    for (var attempt = 0; attempt < _maxVerifyAttempts; attempt++) {
+      final result = await _verificationService.verifyPayment(orderCode);
+      finalResult = result;
+
+      if (result.isPaid || result.isCancelled) {
+        break;
+      }
+
+      if (!result.isPending) {
+        break;
+      }
+
+      final isLastAttempt = attempt == _maxVerifyAttempts - 1;
+      if (isLastAttempt || !mounted) {
+        break;
+      }
+
+      await Future<void>.delayed(_verifyRetryDelay);
+      if (!mounted) return;
+    }
 
     if (!mounted) return;
+
+    final result =
+        finalResult ??
+        const PaymentVerificationResult(
+          status: 'error',
+          message: 'Khong nhan duoc ket qua xac nhan thanh toan.',
+        );
 
     setState(() {
       _verificationResult = result;
@@ -70,8 +112,10 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
         _resolvedStatus = 'success';
       } else if (result.isCancelled) {
         _resolvedStatus = 'cancel';
-      } else if (result.status == 'error' || result.status == 'unknown') {
-        // Keep original status from deep link
+      } else if (result.isPending) {
+        _resolvedStatus = 'pending';
+      } else {
+        _resolvedStatus = 'failed';
       }
     });
 
@@ -109,8 +153,9 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
                         height: 40,
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
                         ),
                       ),
                     ),
@@ -144,31 +189,43 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
     }
 
     final isSuccess = _resolvedStatus == 'success';
+    final isPending = _resolvedStatus == 'pending';
     final isCancel = _resolvedStatus == 'cancel';
 
     final icon = isSuccess
         ? Icons.check_circle_rounded
+        : isPending
+        ? Icons.schedule_rounded
         : isCancel
-            ? Icons.info_rounded
-            : Icons.error_rounded;
+        ? Icons.info_rounded
+        : Icons.error_rounded;
 
     final iconColor = isSuccess
         ? AppColors.green600
+        : isPending
+        ? AppColors.amber600
         : isCancel
-            ? AppColors.amber600
-            : AppColors.red600;
+        ? AppColors.amber600
+        : AppColors.red600;
 
     final title = isSuccess
         ? 'Thanh toán thành công!'
+        : isPending
+        ? 'Thanh toán đang chờ xác nhận'
         : isCancel
-            ? 'Bạn đã hủy thanh toán'
-            : 'Thanh toán thất bại';
+        ? 'Bạn đã hủy thanh toán'
+        : 'Thanh toán thất bại';
 
-    final subtitle = isSuccess
+    final defaultSubtitle = isSuccess
         ? 'Tài khoản đã được nâng cấp Premium. Chúc bạn học tập hiệu quả!'
+        : isPending
+        ? 'Hệ thống đang đợi xác nhận từ cổng thanh toán. Vui lòng thử lại sau ít phút.'
         : isCancel
-            ? 'Bạn có thể quay lại để thử lại bất kỳ lúc nào.'
-            : 'Đã có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.';
+        ? 'Bạn có thể quay lại để thử lại bất kỳ lúc nào.'
+        : 'Đã có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.';
+    final subtitle = _verificationResult?.message?.trim().isNotEmpty == true
+        ? _verificationResult!.message!.trim()
+        : defaultSubtitle;
 
     // Build premium info text for success
     String? premiumInfoText;
@@ -176,8 +233,9 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
       if (_verificationResult!.isLifetime) {
         premiumInfoText = '🎉 Gói Premium trọn đời';
       } else if (_verificationResult!.premiumExpiresAt != null) {
-        final expiresAt =
-            DateTime.tryParse(_verificationResult!.premiumExpiresAt!);
+        final expiresAt = DateTime.tryParse(
+          _verificationResult!.premiumExpiresAt!,
+        );
         if (expiresAt != null) {
           final day = expiresAt.day.toString().padLeft(2, '0');
           final month = expiresAt.month.toString().padLeft(2, '0');
@@ -230,8 +288,10 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
               if (premiumInfoText != null) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
@@ -281,6 +341,32 @@ class _PaymentResultPageState extends ConsumerState<PaymentResultPage>
                   ),
                 ),
               ),
+              if (!isSuccess &&
+                  widget.orderCode != null &&
+                  widget.orderCode!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _verifyPayment,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.slate200,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      'Kiểm tra lại trạng thái',
+                      style: GoogleFonts.lexend(
+                        color: AppColors.textSlate800,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               if (!isSuccess) ...[
                 const SizedBox(height: 12),
                 SizedBox(

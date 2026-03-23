@@ -17,12 +17,13 @@ class SettingsPage extends ConsumerWidget {
     final user = Supabase.instance.client.auth.currentUser;
     final subscriptionInfo = ref.watch(subscriptionInfoProvider).valueOrNull;
     final role = ref.watch(userRoleProvider).valueOrNull;
-    final metadataRole =
-      (user?.userMetadata?['role'] as String?)?.toLowerCase().trim();
+    final metadataRole = (user?.userMetadata?['role'] as String?)
+        ?.toLowerCase()
+        .trim();
     final isPremium =
-      (subscriptionInfo?.isPremium ?? false) ||
-      role == 'premium' ||
-      metadataRole == 'premium';
+        (subscriptionInfo?.isPremium ?? false) ||
+        role == 'premium' ||
+        metadataRole == 'premium';
     final premiumLabel = subscriptionInfo?.statusLabel ?? 'Premium';
     final displayName =
         user?.userMetadata?['full_name'] as String? ??
@@ -128,6 +129,11 @@ class SettingsPage extends ConsumerWidget {
                             onTap: () => context.push('/settings/test-history'),
                           ),
                           _SettingsItem(
+                            icon: Icons.receipt_long_outlined,
+                            label: 'Lịch sử giao dịch',
+                            onTap: () => context.push('/settings/transactions'),
+                          ),
+                          _SettingsItem(
                             icon: Icons.language_outlined,
                             label: 'Ngôn ngữ ứng dụng',
                             trailing: Text(
@@ -142,7 +148,10 @@ class SettingsPage extends ConsumerWidget {
                           _SettingsItem(
                             icon: Icons.dark_mode_outlined,
                             label: 'Giao diện tối',
-                            trailing: _ToggleSwitch(value: false, onChanged: (_) {}),
+                            trailing: _ToggleSwitch(
+                              value: false,
+                              onChanged: (_) {},
+                            ),
                             showChevron: false,
                             isLast: true,
                           ),
@@ -173,7 +182,8 @@ class SettingsPage extends ConsumerWidget {
                           _SettingsItem(
                             icon: Icons.alarm_outlined,
                             label: 'Nhắc nhở học tập',
-                            onTap: () => _showComingSoon(context),
+                            onTap: () =>
+                                context.push('/settings/study-reminder'),
                             isLast: true,
                           ),
                         ],
@@ -198,12 +208,12 @@ class SettingsPage extends ConsumerWidget {
                           _SettingsItem(
                             icon: Icons.feedback_outlined,
                             label: 'Phản hồi & hỗ trợ',
-                            onTap: () => _showComingSoon(context),
+                            onTap: () => context.push('/settings/support'),
                           ),
                           _SettingsItem(
                             icon: Icons.star_border_outlined,
                             label: 'Đánh giá 5 sao',
-                            onTap: () => _showComingSoon(context),
+                            onTap: () => context.push('/settings/reviews'),
                             isLast: true,
                           ),
                         ],
@@ -241,10 +251,10 @@ class SettingsPage extends ConsumerWidget {
         context.go('/home');
         return;
       case 1:
-        context.go('/exam/mock-test');
+        context.go('/theory');
         return;
       case 2:
-        context.go('/theory');
+        context.go('/exam/mock-test');
         return;
       case 3:
         context.go('/upgrade');
@@ -380,7 +390,10 @@ class _ProfileSection extends StatelessWidget {
                   if (isPremium)
                     Container(
                       margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFB45309),
                         borderRadius: BorderRadius.circular(999),
@@ -420,8 +433,9 @@ class _ProfileSection extends StatelessWidget {
             OutlinedButton(
               onPressed: onActionTap,
               style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    isLoggedIn ? AppColors.orange500 : AppColors.primary,
+                foregroundColor: isLoggedIn
+                    ? AppColors.orange500
+                    : AppColors.primary,
                 side: BorderSide(
                   color: (isLoggedIn ? AppColors.orange500 : AppColors.primary)
                       .withValues(alpha: 0.4),
@@ -429,8 +443,10 @@ class _ProfileSection extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 textStyle: GoogleFonts.lexend(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -483,10 +499,12 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
   Widget build(BuildContext context) {
     final avatar = CircleAvatar(
       radius: 34,
-      backgroundColor:
-          widget.isPremium ? const Color(0xFFFFF7D6) : AppColors.teal100,
-      backgroundImage:
-          widget.avatarUrl != null ? NetworkImage(widget.avatarUrl!) : null,
+      backgroundColor: widget.isPremium
+          ? const Color(0xFFFFF7D6)
+          : AppColors.teal100,
+      backgroundImage: widget.avatarUrl != null
+          ? NetworkImage(widget.avatarUrl!)
+          : null,
       child: widget.avatarUrl == null
           ? Text(
               widget.displayName.isNotEmpty
@@ -591,9 +609,7 @@ class _SettingsGroup extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: items,
-        ),
+        child: Column(children: items),
       ),
     );
   }
@@ -640,10 +656,7 @@ class _SettingsItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  trailing!,
-                ],
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
                 if (showChevron && trailing == null)
                   const Icon(
                     Icons.chevron_right,
@@ -655,11 +668,7 @@ class _SettingsItem extends StatelessWidget {
           ),
         ),
         if (!isLast)
-          const Divider(
-            height: 1,
-            indent: 54,
-            color: AppColors.borderSlate100,
-          ),
+          const Divider(height: 1, indent: 54, color: AppColors.borderSlate100),
       ],
     );
   }

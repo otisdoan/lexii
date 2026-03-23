@@ -28,8 +28,10 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
   List<int> get _countOptions {
     final total = widget.partData.totalQuestions;
     if (total <= 0) {
-      // Writing parts may have 0 in totalQuestions initially but still be playable
-      if (widget.partData.questionType == 'free_text') return [5, 10];
+      if (widget.partData.questionType == 'free_text' ||
+          widget.partData.questionType == 'voice') {
+        return [5, 10];
+      }
       return [0];
     }
     final opts = <int>[];
@@ -66,6 +68,24 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
           return 'Đọc chủ đề và viết bài luận bày tỏ ý kiến của bạn. Viết ít nhất 3 đoạn văn.';
         default:
           return 'Viết câu trả lời của bạn bằng tiếng Anh.';
+      }
+    }
+    if (part.questionType == 'voice') {
+      switch (part.partNumber) {
+        case 1:
+          return 'Đọc to đoạn văn bản xuất hiện trên màn hình. Phát âm to, rõ ràng và có ngữ điệu.';
+        case 2:
+          return 'Miêu tả bức tranh chi tiết nhất có thể. Đề cập đến người, vật, hành động và bối cảnh.';
+        case 3:
+          return 'Trả lời các câu hỏi dựa trên tình huống đặt ra. Trả lời đầy đủ câu.';
+        case 4:
+          return 'Sử dụng thông tin cho sẵn để trả lời câu hỏi. Chú ý khai thác đúng trọng tâm.';
+        case 5:
+          return 'Đề xuất giải pháp cho vấn đề được nêu. Trình bày logic, hợp lý.';
+        case 6:
+          return 'Trình bày quan điểm của bạn về một chủ đề cụ thể. Đưa ra dẫn chứng bảo vệ quan điểm.';
+        default:
+          return 'Trả lời câu hỏi bằng cách ghi âm.';
       }
     }
     // mcq_audio (listening)
@@ -181,11 +201,17 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _statRow('Số câu đã làm', '${part.totalAnswered}',
-                  AppColors.primary),
+              _statRow(
+                'Số câu đã làm',
+                '${part.totalAnswered}',
+                AppColors.primary,
+              ),
               const SizedBox(height: 6),
-              _statRow('Trả lời đúng', '${part.correctAnswers}',
-                  AppColors.green600),
+              _statRow(
+                'Trả lời đúng',
+                '${part.correctAnswers}',
+                AppColors.green600,
+              ),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -214,8 +240,7 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                   value: part.progressPercent / 100,
                   minHeight: 6,
                   backgroundColor: AppColors.slate200,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(part.iconColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(part.iconColor),
                 ),
               ),
             ],
@@ -362,10 +387,10 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                           color: AppColors.textSlate800,
                         ),
                         items: opts
-                            .map((n) => DropdownMenuItem(
-                                  value: n,
-                                  child: Text('$n'),
-                                ))
+                            .map(
+                              (n) =>
+                                  DropdownMenuItem(value: n, child: Text('$n')),
+                            )
                             .toList(),
                         onChanged: (v) {
                           if (v != null) {
@@ -396,8 +421,9 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
                       value: _reviewMode,
                       onChanged: (v) => setState(() => _reviewMode = v),
                       activeThumbColor: AppColors.primary,
-                      activeTrackColor:
-                          AppColors.primary.withValues(alpha: 0.4),
+                      activeTrackColor: AppColors.primary.withValues(
+                        alpha: 0.4,
+                      ),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
@@ -410,36 +436,61 @@ class _PracticePartIntroPageState extends State<PracticePartIntroPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: (part.totalQuestions > 0 || part.questionType == 'free_text')
+              onPressed:
+                  (part.totalQuestions > 0 ||
+                      part.questionType == 'free_text' ||
+                      part.questionType == 'voice')
                   ? () {
                       if (part.questionType == 'free_text') {
                         // Writing
-                        context.push('/practice/writing-question', extra: {
-                          'partNumber':
-                              int.tryParse(part.testPartId) ?? part.partNumber,
-                          'partTitle': part.title,
-                          'questionLimit': safeCount,
-                        });
+                        context.push(
+                          '/practice/writing-question',
+                          extra: {
+                            'partNumber':
+                                int.tryParse(part.testPartId) ??
+                                part.partNumber,
+                            'partTitle': part.title,
+                            'questionLimit': safeCount,
+                          },
+                        );
+                      } else if (part.questionType == 'voice') {
+                        context.push(
+                          '/practice/speaking-question',
+                          extra: {
+                            'partNumber': part.partNumber,
+                            'taskType': part.testPartId,
+                            'partTitle': part.title,
+                            'questionLimit': safeCount,
+                          },
+                        );
                       } else if (part.questionType == 'mcq_text') {
                         // Reading
-                        context.push('/practice/reading-question', extra: {
-                          'testId': part.testId,
-                          'partNumber': part.partNumber,
-                          'partTitle': part.title,
-                          'questionLimit': safeCount,
-                          'randomizeQuestions': false,
-                        });
+                        context.push(
+                          '/exam/question',
+                          extra: {
+                            'testId': part.testId,
+                            'testTitle': part.title,
+                            'partId': part.testPartId,
+                            'partNumber': part.partNumber,
+                            'isPracticeMode': true,
+                            'questionLimit': safeCount,
+                            'randomizeQuestions': false,
+                          },
+                        );
                       } else {
                         // Listening (default)
-                        context.push('/exam/question', extra: {
-                          'testId': part.testId,
-                          'testTitle': part.title,
-                          'partId': part.testPartId,
-                          'partNumber': part.partNumber,
-                          'isPracticeMode': true,
-                          'questionLimit': safeCount,
-                          'randomizeQuestions': false,
-                        });
+                        context.push(
+                          '/exam/question',
+                          extra: {
+                            'testId': part.testId,
+                            'testTitle': part.title,
+                            'partId': part.testPartId,
+                            'partNumber': part.partNumber,
+                            'isPracticeMode': true,
+                            'questionLimit': safeCount,
+                            'randomizeQuestions': false,
+                          },
+                        );
                       }
                     }
                   : null,

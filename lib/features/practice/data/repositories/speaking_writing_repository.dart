@@ -72,15 +72,94 @@ class SpeakingWritingRepository {
   final SupabaseClient _client;
 
   SpeakingWritingRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
-  Future<List<SpeakingQuestionModel>> getSpeakingQuestionsByType(String type) async {
+  Future<List<SpeakingQuestionModel>> getSpeakingPromptsByPartNumber(
+    int partNumber, {
+    int? limit,
+  }) async {
     try {
-      final response = await _client
-          .from('speaking_questions')
+      var query = _client
+          .from('speaking_prompts')
           .select('*')
-          .eq('type', type)
-          .limit(20) as List<dynamic>;
+          .eq('part_number', partNumber)
+          .order('order_index');
+
+      if (limit != null && limit > 0) {
+        query = query.limit(limit);
+      }
+
+      final response = await query as List<dynamic>;
+      final items = response
+          .map((row) {
+            final json = row as Map<String, dynamic>;
+            final taskType =
+                json['task_type']?.toString() ??
+                _taskTypeFromPartNumber(partNumber);
+            final prompt = (json['prompt'] ?? '').toString().trim();
+            final passage = (json['passage'] ?? '').toString().trim();
+
+            final content = prompt.isNotEmpty
+                ? prompt
+                : (passage.isNotEmpty ? passage : 'No prompt available.');
+
+            return SpeakingQuestionModel(
+              id: (json['id'] ?? '').toString(),
+              type: taskType,
+              content: content,
+              imageUrl: json['image_url'] as String?,
+              extraData: {
+                'title': (json['title'] ?? '').toString(),
+                'prompt': prompt,
+                'passage': passage,
+                'prep_seconds': json['prep_seconds'],
+                'part_number': partNumber,
+              },
+            );
+          })
+          .where((e) => e.id.isNotEmpty)
+          .toList();
+
+      if (items.isNotEmpty) return items;
+    } catch (_) {
+      // Fall back to local seeded prompts if speaking_prompts is unavailable.
+    }
+
+    final fallback = _fallbackSpeaking(_taskTypeFromPartNumber(partNumber));
+    if (limit != null && limit > 0 && fallback.length > limit) {
+      return fallback.sublist(0, limit);
+    }
+    return fallback;
+  }
+
+  String _taskTypeFromPartNumber(int partNumber) {
+    switch (partNumber) {
+      case 1:
+        return 'read_aloud';
+      case 2:
+        return 'describe_picture';
+      case 3:
+        return 'respond_questions';
+      case 4:
+        return 'respond_information';
+      case 5:
+        return 'express_opinion';
+      default:
+        return 'respond_questions';
+    }
+  }
+
+  Future<List<SpeakingQuestionModel>> getSpeakingQuestionsByType(
+    String type,
+  ) async {
+    try {
+      final response =
+          await _client
+                  .from('speaking_questions')
+                  .select('*')
+                  .eq('type', type)
+                  .limit(20)
+              as List<dynamic>;
 
       final items = response
           .map((e) => SpeakingQuestionModel.fromJson(e as Map<String, dynamic>))
@@ -95,16 +174,22 @@ class SpeakingWritingRepository {
     return _fallbackSpeaking(type);
   }
 
-  Future<List<SwWritingQuestionModel>> getWritingQuestionsByType(String type) async {
+  Future<List<SwWritingQuestionModel>> getWritingQuestionsByType(
+    String type,
+  ) async {
     try {
-      final response = await _client
-          .from('writing_questions')
-          .select('*')
-          .eq('type', type)
-          .limit(20) as List<dynamic>;
+      final response =
+          await _client
+                  .from('writing_questions')
+                  .select('*')
+                  .eq('type', type)
+                  .limit(20)
+              as List<dynamic>;
 
       final items = response
-          .map((e) => SwWritingQuestionModel.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) => SwWritingQuestionModel.fromJson(e as Map<String, dynamic>),
+          )
           .where((e) => e.id.isNotEmpty)
           .toList();
 
@@ -126,11 +211,11 @@ class SpeakingWritingRepository {
     final response = await _client
         .from('writing_answers')
         .insert({
-      'user_id': userId,
-      'question_id': questionId,
-      'answer_text': answerText,
-      'created_at': DateTime.now().toIso8601String(),
-    })
+          'user_id': userId,
+          'question_id': questionId,
+          'answer_text': answerText,
+          'created_at': DateTime.now().toIso8601String(),
+        })
         .select('id')
         .maybeSingle();
 
@@ -149,13 +234,13 @@ class SpeakingWritingRepository {
     final response = await _client
         .from('speaking_answers')
         .insert({
-      'user_id': userId,
-      'question_id': questionId,
-      'audio_url': audioUrl,
-      'transcript': transcript,
-      'duration': durationSeconds,
-      'created_at': DateTime.now().toIso8601String(),
-    })
+          'user_id': userId,
+          'question_id': questionId,
+          'audio_url': audioUrl,
+          'transcript': transcript,
+          'duration': durationSeconds,
+          'created_at': DateTime.now().toIso8601String(),
+        })
         .select('id')
         .maybeSingle();
 
@@ -206,22 +291,29 @@ class SpeakingWritingRepository {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return const [];
 
-    final answers = await _client
-        .from('writing_answers')
-        .select('id,question_id,answer_text,created_at')
-        .eq('user_id', userId)
-        .order('created_at', ascending: false)
-        .limit(limit) as List<dynamic>;
+    final answers =
+        await _client
+                .from('writing_answers')
+                .select('id,question_id,answer_text,created_at')
+                .eq('user_id', userId)
+                .order('created_at', ascending: false)
+                .limit(limit)
+            as List<dynamic>;
 
     if (answers.isEmpty) return const [];
 
     final answerIds = answers.map((e) => e['id'].toString()).toList();
-    final questionIds = answers.map((e) => e['question_id'].toString()).toSet().toList();
+    final questionIds = answers
+        .map((e) => e['question_id'].toString())
+        .toSet()
+        .toList();
 
-    final questions = await _client
-        .from('writing_questions')
-        .select('id,type,content')
-        .inFilter('id', questionIds) as List<dynamic>;
+    final questions =
+        await _client
+                .from('writing_questions')
+                .select('id,type,content')
+                .inFilter('id', questionIds)
+            as List<dynamic>;
 
     final aiRows = await _safeFetchAiWriting(answerIds);
 
@@ -247,7 +339,9 @@ class SpeakingWritingRepository {
         questionType: question?['type']?.toString() ?? 'writing',
         prompt: question?['content']?.toString() ?? '',
         answerText: data['answer_text']?.toString() ?? '',
-        createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ?? DateTime.now(),
+        createdAt:
+            DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+            DateTime.now(),
         ai: _mapWritingAi(ai),
       );
     }).toList();
@@ -257,22 +351,31 @@ class SpeakingWritingRepository {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return const [];
 
-    final answers = await _client
-        .from('speaking_answers')
-        .select('id,question_id,audio_url,transcript,duration,created_at')
-        .eq('user_id', userId)
-        .order('created_at', ascending: false)
-        .limit(limit) as List<dynamic>;
+    final answers =
+        await _client
+                .from('speaking_answers')
+                .select(
+                  'id,question_id,audio_url,transcript,duration,created_at',
+                )
+                .eq('user_id', userId)
+                .order('created_at', ascending: false)
+                .limit(limit)
+            as List<dynamic>;
 
     if (answers.isEmpty) return const [];
 
     final answerIds = answers.map((e) => e['id'].toString()).toList();
-    final questionIds = answers.map((e) => e['question_id'].toString()).toSet().toList();
+    final questionIds = answers
+        .map((e) => e['question_id'].toString())
+        .toSet()
+        .toList();
 
-    final questions = await _client
-        .from('speaking_questions')
-        .select('id,type,content')
-        .inFilter('id', questionIds) as List<dynamic>;
+    final questions =
+        await _client
+                .from('speaking_questions')
+                .select('id,type,content')
+                .inFilter('id', questionIds)
+            as List<dynamic>;
 
     final aiRows = await _safeFetchAiSpeaking(answerIds);
 
@@ -298,7 +401,9 @@ class SpeakingWritingRepository {
         questionType: question?['type']?.toString() ?? 'speaking',
         prompt: question?['content']?.toString() ?? '',
         answerText: data['transcript']?.toString() ?? '',
-        createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ?? DateTime.now(),
+        createdAt:
+            DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+            DateTime.now(),
         durationSeconds: (data['duration'] as num?)?.toInt(),
         audioUrl: data['audio_url']?.toString(),
         ai: _mapSpeakingAi(ai),
@@ -321,8 +426,16 @@ class SpeakingWritingRepository {
     final taskMatchRatio = _tokenOverlapRatio(promptTokens, answerTokens);
 
     final grammar = _clamp(35 + min(count, 140) ~/ 3, 20, 95);
-    final vocabulary = _clamp(30 + min(count, 160) ~/ 4 + (taskMatchRatio * 8).round(), 20, 95);
-    final coherence = _clamp(25 + min(count, 180) ~/ 5 + (taskMatchRatio * 12).round(), 20, 95);
+    final vocabulary = _clamp(
+      30 + min(count, 160) ~/ 4 + (taskMatchRatio * 8).round(),
+      20,
+      95,
+    );
+    final coherence = _clamp(
+      25 + min(count, 180) ~/ 5 + (taskMatchRatio * 12).round(),
+      20,
+      95,
+    );
     final overall = ((grammar + vocabulary + coherence) / 3).round();
 
     final corrected = answer.trim().isEmpty
@@ -440,8 +553,8 @@ class SpeakingWritingRepository {
     required int durationSeconds,
   }) {
     final words = transcript.trim().isEmpty
-      ? <String>[]
-      : transcript.trim().split(RegExp(r'\s+'));
+        ? <String>[]
+        : transcript.trim().split(RegExp(r'\s+'));
     final count = words.length;
 
     final promptTokens = _extractEnglishTokens(prompt);
@@ -453,15 +566,34 @@ class SpeakingWritingRepository {
     final lengthScore = _clamp(20 + min(count, 140) ~/ 2, 20, 95);
 
     final wordsPerMinute = durationSeconds <= 0
-      ? 0.0
-      : (count / durationSeconds) * 60;
-    final fluencyPenalty = (wordsPerMinute < 70 || wordsPerMinute > 190) ? 10 : 0;
+        ? 0.0
+        : (count / durationSeconds) * 60;
+    final fluencyPenalty = (wordsPerMinute < 70 || wordsPerMinute > 190)
+        ? 10
+        : 0;
 
-    final pronunciation = _clamp(((taskMatchScore * 0.45) + (durationScore * 0.35) + (lengthScore * 0.2)).round(), 20, 98);
+    final pronunciation = _clamp(
+      ((taskMatchScore * 0.45) + (durationScore * 0.35) + (lengthScore * 0.2))
+          .round(),
+      20,
+      98,
+    );
     final fluency = _clamp((durationScore - fluencyPenalty + 8), 20, 98);
-    final grammar = _clamp(((lengthScore * 0.4) + (taskMatchScore * 0.6)).round() - 6, 20, 98);
-    final vocabulary = _clamp(((lengthScore * 0.5) + (taskMatchScore * 0.5)).round(), 20, 98);
-    final coherence = _clamp(((taskMatchScore * 0.7) + (fluency * 0.3)).round(), 20, 98);
+    final grammar = _clamp(
+      ((lengthScore * 0.4) + (taskMatchScore * 0.6)).round() - 6,
+      20,
+      98,
+    );
+    final vocabulary = _clamp(
+      ((lengthScore * 0.5) + (taskMatchScore * 0.5)).round(),
+      20,
+      98,
+    );
+    final coherence = _clamp(
+      ((taskMatchScore * 0.7) + (fluency * 0.3)).round(),
+      20,
+      98,
+    );
 
     final taskScores = _buildTaskScores(
       taskType: taskType,
@@ -484,8 +616,8 @@ class SpeakingWritingRepository {
     );
 
     final corrected = transcript.trim().isEmpty
-      ? 'Bạn chưa có transcript để hệ thống chỉnh sửa. Hãy ghi âm lại và nộp bài để nhận phản hồi chính xác hơn.'
-      : _polishTranscript(transcript.trim());
+        ? 'Bạn chưa có transcript để hệ thống chỉnh sửa. Hãy ghi âm lại và nộp bài để nhận phản hồi chính xác hơn.'
+        : _polishTranscript(transcript.trim());
 
     final vocabHighlights = _buildImportantWordsFromPrompt(prompt);
 
@@ -497,11 +629,11 @@ class SpeakingWritingRepository {
       errors: errors,
     );
 
-      final aiSuggestedAnswer = _buildSuggestedAnswer(
-        taskType: taskType,
-        prompt: prompt,
-        correctedTranscript: corrected,
-      );
+    final aiSuggestedAnswer = _buildSuggestedAnswer(
+      taskType: taskType,
+      prompt: prompt,
+      correctedTranscript: corrected,
+    );
 
     return AiScoreBundle(
       overall: overall,
@@ -556,9 +688,7 @@ class SpeakingWritingRepository {
     final model = GenerativeModel(
       model: 'gemini-2.0-flash',
       apiKey: apiKey,
-      generationConfig: GenerationConfig(
-        temperature: 0.2,
-      ),
+      generationConfig: GenerationConfig(temperature: 0.2),
     );
 
     final safeTranscript = transcript.trim().isEmpty
@@ -573,9 +703,7 @@ class SpeakingWritingRepository {
     );
 
     final response = await model
-        .generateContent([
-          Content.text(fullPrompt),
-        ])
+        .generateContent([Content.text(fullPrompt)])
         .timeout(const Duration(seconds: 20));
 
     final raw = response.text ?? '';
@@ -606,9 +734,7 @@ class SpeakingWritingRepository {
     final model = GenerativeModel(
       model: 'gemini-2.0-flash',
       apiKey: apiKey,
-      generationConfig: GenerationConfig(
-        temperature: 0.0,
-      ),
+      generationConfig: GenerationConfig(temperature: 0.0),
     );
 
     final response = await model
@@ -636,10 +762,14 @@ class SpeakingWritingRepository {
   Future<List<dynamic>> _safeFetchAiWriting(List<String> answerIds) async {
     if (answerIds.isEmpty) return const [];
     try {
-      final rows = await _client
-          .from('ai_writing_evaluations')
-          .select('answer_id,task_response_score,grammar_score,vocabulary_score,coherence_score,overall_score,feedback,corrected_version')
-          .inFilter('answer_id', answerIds) as List<dynamic>;
+      final rows =
+          await _client
+                  .from('ai_writing_evaluations')
+                  .select(
+                    'answer_id,task_response_score,grammar_score,vocabulary_score,coherence_score,overall_score,feedback,corrected_version',
+                  )
+                  .inFilter('answer_id', answerIds)
+              as List<dynamic>;
       return rows;
     } catch (_) {
       return const [];
@@ -649,10 +779,14 @@ class SpeakingWritingRepository {
   Future<List<dynamic>> _safeFetchAiSpeaking(List<String> answerIds) async {
     if (answerIds.isEmpty) return const [];
     try {
-      final rows = await _client
-          .from('ai_speaking_evaluations')
-          .select('answer_id,pronunciation_score,fluency_score,grammar_score,vocabulary_score,overall_score,feedback,corrected_version')
-          .inFilter('answer_id', answerIds) as List<dynamic>;
+      final rows =
+          await _client
+                  .from('ai_speaking_evaluations')
+                  .select(
+                    'answer_id,pronunciation_score,fluency_score,grammar_score,vocabulary_score,overall_score,feedback,corrected_version',
+                  )
+                  .inFilter('answer_id', answerIds)
+              as List<dynamic>;
       return rows;
     } catch (_) {
       return const [];
@@ -694,7 +828,10 @@ class SpeakingWritingRepository {
 
   List<String> _toStringList(dynamic value) {
     if (value is List) {
-      return value.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return value
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     return const [];
   }
@@ -711,7 +848,9 @@ class SpeakingWritingRepository {
       return trimmed.substring(first, last + 1);
     }
 
-    throw const FormatException('Gemini response does not contain valid JSON object.');
+    throw const FormatException(
+      'Gemini response does not contain valid JSON object.',
+    );
   }
 
   Map<String, int> _buildTaskScores({
@@ -782,19 +921,27 @@ class SpeakingWritingRepository {
     final errors = <String>[];
 
     if (transcript.trim().split(RegExp(r'\s+')).length < 12) {
-      errors.add('Nội dung quá ngắn, chưa đủ phát triển ý theo yêu cầu bài nói TOEIC.');
+      errors.add(
+        'Nội dung quá ngắn, chưa đủ phát triển ý theo yêu cầu bài nói TOEIC.',
+      );
     }
     if (taskMatchRatio < 0.25) {
-      errors.add('Câu trả lời bám đề chưa tốt, còn thiếu nhiều ý liên quan trực tiếp đến câu hỏi.');
+      errors.add(
+        'Câu trả lời bám đề chưa tốt, còn thiếu nhiều ý liên quan trực tiếp đến câu hỏi.',
+      );
     }
     if (wordsPerMinute > 200) {
-      errors.add('Tốc độ nói quá nhanh, dễ làm giảm độ rõ ràng và độ chính xác phát âm.');
+      errors.add(
+        'Tốc độ nói quá nhanh, dễ làm giảm độ rõ ràng và độ chính xác phát âm.',
+      );
     } else if (wordsPerMinute > 0 && wordsPerMinute < 65) {
       errors.add('Tốc độ nói chậm, ngắt quãng nhiều, ảnh hưởng điểm Fluency.');
     }
 
     if (taskType == 'read_aloud') {
-      errors.add('Cần chú ý nhấn trọng âm từ khóa và ngắt nhịp theo dấu câu để cải thiện Intonation.');
+      errors.add(
+        'Cần chú ý nhấn trọng âm từ khóa và ngắt nhịp theo dấu câu để cải thiện Intonation.',
+      );
     }
 
     return errors;
@@ -921,16 +1068,29 @@ $schema
     required Map<String, dynamic> data,
     required String fallbackTranscript,
   }) {
-    final rawOverall = _toScore(_readInt(data, const ['overall_score', 'overall']));
-    final pronunciation = _toScore(_readInt(data, const ['pronunciation_score', 'pronunciation']));
-    final fluency = _toScore(_readInt(data, const ['fluency_score', 'fluency']));
-    final grammar = _toScore(_readInt(data, const ['grammar_score', 'grammar']));
-    final vocabulary = _toScore(_readInt(data, const ['vocabulary_score', 'vocabulary']));
+    final rawOverall = _toScore(
+      _readInt(data, const ['overall_score', 'overall']),
+    );
+    final pronunciation = _toScore(
+      _readInt(data, const ['pronunciation_score', 'pronunciation']),
+    );
+    final fluency = _toScore(
+      _readInt(data, const ['fluency_score', 'fluency']),
+    );
+    final grammar = _toScore(
+      _readInt(data, const ['grammar_score', 'grammar']),
+    );
+    final vocabulary = _toScore(
+      _readInt(data, const ['vocabulary_score', 'vocabulary']),
+    );
     final coherence = _toScore(
-      _readInt(
-        data,
-        const ['coherence_score', 'relevance_score', 'reasoning_score', 'completeness_score', 'content_score'],
-      ),
+      _readInt(data, const [
+        'coherence_score',
+        'relevance_score',
+        'reasoning_score',
+        'completeness_score',
+        'content_score',
+      ]),
     );
 
     final Map<String, int> taskScores;
@@ -961,15 +1121,21 @@ $schema
         break;
       case 'respond_information':
         taskScores = {
-          'Information Accuracy': _toScore(_readInt(data, const ['information_accuracy_score'])),
-          'Completeness': _toScore(_readInt(data, const ['completeness_score'])),
+          'Information Accuracy': _toScore(
+            _readInt(data, const ['information_accuracy_score']),
+          ),
+          'Completeness': _toScore(
+            _readInt(data, const ['completeness_score']),
+          ),
           'Grammar': grammar,
           'Fluency': fluency,
         };
         break;
       case 'express_opinion':
         taskScores = {
-          'Opinion Clarity': _toScore(_readInt(data, const ['opinion_clarity_score'])),
+          'Opinion Clarity': _toScore(
+            _readInt(data, const ['opinion_clarity_score']),
+          ),
           'Reasoning': _toScore(_readInt(data, const ['reasoning_score'])),
           'Vocabulary': vocabulary,
           'Grammar': grammar,
@@ -986,10 +1152,17 @@ $schema
         };
     }
 
-    final suggestedAnswer = _readString(data, const ['ai_suggested_answer', 'ai_suggested_reading', 'correctedVersion']);
+    final suggestedAnswer = _readString(data, const [
+      'ai_suggested_answer',
+      'ai_suggested_reading',
+      'correctedVersion',
+    ]);
 
     final normalizedScores = _normalizeTaskScores(taskType, taskScores);
-    final overall = _overallFromTaskScores(normalizedScores, fallback: rawOverall);
+    final overall = _overallFromTaskScores(
+      normalizedScores,
+      fallback: rawOverall,
+    );
 
     return AiScoreBundle(
       overall: overall,
@@ -999,8 +1172,17 @@ $schema
       vocabulary: vocabulary,
       coherence: coherence,
       feedback: _readString(data, const ['feedback']),
-      correctedVersion: _readString(data, const ['correctedVersion', 'ai_suggested_answer', 'ai_suggested_reading']).isNotEmpty
-          ? _readString(data, const ['correctedVersion', 'ai_suggested_answer', 'ai_suggested_reading'])
+      correctedVersion:
+          _readString(data, const [
+            'correctedVersion',
+            'ai_suggested_answer',
+            'ai_suggested_reading',
+          ]).isNotEmpty
+          ? _readString(data, const [
+              'correctedVersion',
+              'ai_suggested_answer',
+              'ai_suggested_reading',
+            ])
           : fallbackTranscript,
       vocabularyHighlights: _buildImportantWordsFromPrompt(prompt),
       taskScores: normalizedScores,
@@ -1056,19 +1238,30 @@ $schema
     required double taskMatchRatio,
   }) {
     final errors = <String>[];
-    final words = answer.trim().isEmpty ? 0 : answer.trim().split(RegExp(r'\s+')).length;
+    final words = answer.trim().isEmpty
+        ? 0
+        : answer.trim().split(RegExp(r'\s+')).length;
 
     if (words < 30) {
-      errors.add('Bài viết còn ngắn, chưa phát triển đủ ý theo yêu cầu của dạng bài.');
+      errors.add(
+        'Bài viết còn ngắn, chưa phát triển đủ ý theo yêu cầu của dạng bài.',
+      );
     }
     if (taskMatchRatio < 0.25) {
-      errors.add('Nội dung bám đề chưa tốt, cần trả lời sát yêu cầu của đề hơn.');
+      errors.add(
+        'Nội dung bám đề chưa tốt, cần trả lời sát yêu cầu của đề hơn.',
+      );
     }
-    if (taskType == 'reply_email' && !answer.contains('@') && !answer.toLowerCase().contains('dear')) {
+    if (taskType == 'reply_email' &&
+        !answer.contains('@') &&
+        !answer.toLowerCase().contains('dear')) {
       errors.add('Dạng email nên có mở đầu và ngữ điệu lịch sự rõ ràng.');
     }
-    if (taskType == 'opinion_essay' && !answer.toLowerCase().contains('because')) {
-      errors.add('Bài opinion cần nêu lý do rõ ràng, nên dùng các từ nối như because, therefore, however.');
+    if (taskType == 'opinion_essay' &&
+        !answer.toLowerCase().contains('because')) {
+      errors.add(
+        'Bài opinion cần nêu lý do rõ ràng, nên dùng các từ nối như because, therefore, however.',
+      );
     }
 
     return errors;
@@ -1081,15 +1274,20 @@ $schema
     required double taskMatchRatio,
     required List<String> errors,
   }) {
-    final scoreLine = taskScores.entries.map((e) => '- ${e.key}: ${e.value}/100').join('\n');
+    final scoreLine = taskScores.entries
+        .map((e) => '- ${e.key}: ${e.value}/100')
+        .join('\n');
     final errorLine = errors.isEmpty
         ? '- Bài viết tương đối ổn định, cần tiếp tục mở rộng lập luận và ví dụ.'
         : errors.map((e) => '- $e').join('\n');
 
     final plan = switch (taskType) {
-      'write_sentence_picture' => 'Đảm bảo mô tả đủ đối tượng, hành động và bối cảnh xuất hiện trong hình.',
-      'reply_email' => 'Viết theo bố cục email rõ: chào mở đầu, trả lời trọng tâm, đề xuất hành động tiếp theo.',
-      'opinion_essay' => 'Nêu quan điểm ở mở bài, mỗi đoạn thân bài có 1 lý do + 1 ví dụ cụ thể.',
+      'write_sentence_picture' =>
+        'Đảm bảo mô tả đủ đối tượng, hành động và bối cảnh xuất hiện trong hình.',
+      'reply_email' =>
+        'Viết theo bố cục email rõ: chào mở đầu, trả lời trọng tâm, đề xuất hành động tiếp theo.',
+      'opinion_essay' =>
+        'Nêu quan điểm ở mở bài, mỗi đoạn thân bài có 1 lý do + 1 ví dụ cụ thể.',
       _ => 'Giữ câu ngắn gọn, mạch lạc và dùng từ nối để liên kết ý tốt hơn.',
     };
 
@@ -1157,9 +1355,15 @@ Trả về duy nhất JSON hợp lệ theo schema:
     required Map<String, dynamic> data,
     required String fallbackAnswer,
   }) {
-    final grammar = _toScore(_readInt(data, const ['grammar_score', 'grammar']));
-    final vocabulary = _toScore(_readInt(data, const ['vocabulary_score', 'vocabulary']));
-    final coherence = _toScore(_readInt(data, const ['coherence_score', 'coherence']));
+    final grammar = _toScore(
+      _readInt(data, const ['grammar_score', 'grammar']),
+    );
+    final vocabulary = _toScore(
+      _readInt(data, const ['vocabulary_score', 'vocabulary']),
+    );
+    final coherence = _toScore(
+      _readInt(data, const ['coherence_score', 'coherence']),
+    );
 
     final rawTaskScores = <String, int>{};
     final taskScoresData = data['task_scores'];
@@ -1182,7 +1386,8 @@ Trả về duy nhất JSON hợp lệ theo schema:
             ),
           );
 
-    final overall = _toScore(_readInt(data, const ['overall_score', 'overall'])) > 0
+    final overall =
+        _toScore(_readInt(data, const ['overall_score', 'overall'])) > 0
         ? _toScore(_readInt(data, const ['overall_score', 'overall']))
         : _overallFromTaskScores(taskScores);
 
@@ -1194,19 +1399,30 @@ Trả về duy nhất JSON hợp lệ theo schema:
       pronunciation: 0,
       fluency: 0,
       feedback: _readString(data, const ['feedback']),
-      correctedVersion: _readString(data, const ['corrected_version', 'correctedVersion']).isNotEmpty
+      correctedVersion:
+          _readString(data, const [
+            'corrected_version',
+            'correctedVersion',
+          ]).isNotEmpty
           ? _readString(data, const ['corrected_version', 'correctedVersion'])
           : fallbackAnswer,
-      vocabularyHighlights: _toStringList(data['vocabulary_important']).isNotEmpty
+      vocabularyHighlights:
+          _toStringList(data['vocabulary_important']).isNotEmpty
           ? _toStringList(data['vocabulary_important'])
           : _buildImportantWordsFromPrompt(prompt),
       taskScores: taskScores,
       errors: _toStringList(data['errors']),
-      aiSuggestedAnswer: _readString(data, const ['ai_suggested_answer', 'corrected_version']),
+      aiSuggestedAnswer: _readString(data, const [
+        'ai_suggested_answer',
+        'corrected_version',
+      ]),
     );
   }
 
-  Map<String, int> _normalizeTaskScores(String taskType, Map<String, int> taskScores) {
+  Map<String, int> _normalizeTaskScores(
+    String taskType,
+    Map<String, int> taskScores,
+  ) {
     if (taskType == 'read_aloud') {
       return {
         'Accuracy': _toScore(taskScores['Accuracy']),
@@ -1232,17 +1448,24 @@ Trả về duy nhất JSON hợp lệ theo schema:
     required Map<String, int> taskScores,
     required List<String> errors,
   }) {
-    final scoreLine = taskScores.entries.map((e) => '- ${e.key}: ${e.value}/100').join('\n');
+    final scoreLine = taskScores.entries
+        .map((e) => '- ${e.key}: ${e.value}/100')
+        .join('\n');
     final errorLine = errors.isEmpty
         ? '- Chưa phát hiện lỗi lớn, cần tiếp tục duy trì độ ổn định.'
         : errors.map((e) => '- $e').join('\n');
 
     final plan = switch (taskType) {
-      'read_aloud' => 'Luyện đọc theo cụm ý, nhấn trọng âm từ khóa và ngắt nghỉ đúng dấu câu để tăng Accuracy + Intonation.',
-      'describe_picture' => 'Mô tả theo thứ tự: tổng quan -> đối tượng chính -> hành động -> bối cảnh để tránh thiếu ý.',
-      'respond_questions' => 'Trả lời trực tiếp câu hỏi ở câu đầu, sau đó thêm 1-2 câu giải thích ngắn có ví dụ.',
-      'respond_information' => 'Đối chiếu kỹ dữ liệu trước khi nói; ưu tiên nêu mốc thời gian/số liệu chính xác trước.',
-      'express_opinion' => 'Nêu quan điểm rõ ngay câu đầu, theo sau là ít nhất 2 lý do và 1 ví dụ thực tế.',
+      'read_aloud' =>
+        'Luyện đọc theo cụm ý, nhấn trọng âm từ khóa và ngắt nghỉ đúng dấu câu để tăng Accuracy + Intonation.',
+      'describe_picture' =>
+        'Mô tả theo thứ tự: tổng quan -> đối tượng chính -> hành động -> bối cảnh để tránh thiếu ý.',
+      'respond_questions' =>
+        'Trả lời trực tiếp câu hỏi ở câu đầu, sau đó thêm 1-2 câu giải thích ngắn có ví dụ.',
+      'respond_information' =>
+        'Đối chiếu kỹ dữ liệu trước khi nói; ưu tiên nêu mốc thời gian/số liệu chính xác trước.',
+      'express_opinion' =>
+        'Nêu quan điểm rõ ngay câu đầu, theo sau là ít nhất 2 lý do và 1 ví dụ thực tế.',
       _ => 'Giữ cấu trúc trả lời rõ ràng: mở ý, phát triển ý, kết luận.',
     };
 
@@ -1292,7 +1515,10 @@ $errorLine
         .toList();
   }
 
-  double _tokenOverlapRatio(List<String> promptTokens, List<String> answerTokens) {
+  double _tokenOverlapRatio(
+    List<String> promptTokens,
+    List<String> answerTokens,
+  ) {
     if (promptTokens.isEmpty || answerTokens.isEmpty) return 0.0;
 
     final promptSet = promptTokens.toSet();
@@ -1314,15 +1540,46 @@ $errorLine
 
   List<String> _buildImportantWordsFromPrompt(String prompt) {
     final stopWords = {
-      'the', 'and', 'for', 'that', 'with', 'this', 'have', 'from', 'your', 'you',
-      'are', 'was', 'were', 'about', 'into', 'their', 'they', 'there', 'then',
-      'than', 'what', 'when', 'where', 'which', 'while', 'because', 'before',
-      'after', 'during', 'very', 'really', 'just', 'usually', 'today', 'every',
+      'the',
+      'and',
+      'for',
+      'that',
+      'with',
+      'this',
+      'have',
+      'from',
+      'your',
+      'you',
+      'are',
+      'was',
+      'were',
+      'about',
+      'into',
+      'their',
+      'they',
+      'there',
+      'then',
+      'than',
+      'what',
+      'when',
+      'where',
+      'which',
+      'while',
+      'because',
+      'before',
+      'after',
+      'during',
+      'very',
+      'really',
+      'just',
+      'usually',
+      'today',
+      'every',
     };
 
-    final tokens = _extractEnglishTokens(prompt)
-        .where((w) => w.length >= 5 && !stopWords.contains(w))
-        .toList();
+    final tokens = _extractEnglishTokens(
+      prompt,
+    ).where((w) => w.length >= 5 && !stopWords.contains(w)).toList();
 
     final unique = <String>[];
     for (final token in tokens) {
@@ -1332,7 +1589,8 @@ $errorLine
 
     return unique
         .map(
-          (word) => '$word (${_inferWordType(word)}): ${_inferVietnameseMeaning(word)}',
+          (word) =>
+              '$word (${_inferWordType(word)}): ${_inferVietnameseMeaning(word)}',
         )
         .toList();
   }
@@ -1342,14 +1600,20 @@ $errorLine
     final knownType = _toeicWordInfo[lower]?.$1;
     if (knownType != null) return knownType;
 
-    if (lower.endsWith('tion') || lower.endsWith('ment') || lower.endsWith('ness')) {
+    if (lower.endsWith('tion') ||
+        lower.endsWith('ment') ||
+        lower.endsWith('ness')) {
       return 'noun';
     }
     if (lower.endsWith('ly')) return 'adverb';
-    if (lower.endsWith('ive') || lower.endsWith('al') || lower.endsWith('ous')) {
+    if (lower.endsWith('ive') ||
+        lower.endsWith('al') ||
+        lower.endsWith('ous')) {
       return 'adjective';
     }
-    if (lower.endsWith('ing') || lower.endsWith('ed') || lower.endsWith('ize')) {
+    if (lower.endsWith('ing') ||
+        lower.endsWith('ed') ||
+        lower.endsWith('ize')) {
       return 'verb';
     }
 
@@ -1408,36 +1672,42 @@ $errorLine
         SpeakingQuestionModel(
           id: 'sp-read-1',
           type: 'read_aloud',
-          content: 'Please read this paragraph aloud: Our company will launch a new customer support portal next month to improve response time and service quality.',
+          content:
+              'Please read this paragraph aloud: Our company will launch a new customer support portal next month to improve response time and service quality.',
         ),
       ],
       'describe_picture': const [
         SpeakingQuestionModel(
           id: 'sp-picture-1',
           type: 'describe_picture',
-          content: 'Describe what you see in the picture. Include people, actions, and setting.',
-          imageUrl: 'https://images.unsplash.com/photo-1521790797524-b2497295b8a0?w=1200',
+          content:
+              'Describe what you see in the picture. Include people, actions, and setting.',
+          imageUrl:
+              'https://images.unsplash.com/photo-1521790797524-b2497295b8a0?w=1200',
         ),
       ],
       'respond_questions': const [
         SpeakingQuestionModel(
           id: 'sp-respond-1',
           type: 'respond_questions',
-          content: 'What do you usually do to prepare for an important meeting?',
+          content:
+              'What do you usually do to prepare for an important meeting?',
         ),
       ],
       'respond_information': const [
         SpeakingQuestionModel(
           id: 'sp-info-1',
           type: 'respond_information',
-          content: 'Based on the schedule, explain which train the customer should take to arrive before 9:00 AM.',
+          content:
+              'Based on the schedule, explain which train the customer should take to arrive before 9:00 AM.',
         ),
       ],
       'express_opinion': const [
         SpeakingQuestionModel(
           id: 'sp-opinion-1',
           type: 'express_opinion',
-          content: 'Do you agree that working remotely increases productivity? Give reasons and examples.',
+          content:
+              'Do you agree that working remotely increases productivity? Give reasons and examples.',
         ),
       ],
     };
@@ -1451,8 +1721,10 @@ $errorLine
         SwWritingQuestionModel(
           id: 'wr-sent-1',
           type: 'write_sentence_picture',
-          content: 'Write one sentence to describe the image using all required keywords.',
-          imageUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200',
+          content:
+              'Write one sentence to describe the image using all required keywords.',
+          imageUrl:
+              'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200',
           keywords: ['team', 'meeting', 'presentation'],
         ),
       ],
@@ -1460,14 +1732,16 @@ $errorLine
         SwWritingQuestionModel(
           id: 'wr-email-1',
           type: 'reply_email',
-          content: 'You received an email asking to reschedule tomorrow\'s workshop. Write a reply email with a new proposed time.',
+          content:
+              'You received an email asking to reschedule tomorrow\'s workshop. Write a reply email with a new proposed time.',
         ),
       ],
       'opinion_essay': const [
         SwWritingQuestionModel(
           id: 'wr-essay-1',
           type: 'opinion_essay',
-          content: 'Some people think companies should require employees to work in the office full-time. Do you agree or disagree?',
+          content:
+              'Some people think companies should require employees to work in the office full-time. Do you agree or disagree?',
         ),
       ],
     };

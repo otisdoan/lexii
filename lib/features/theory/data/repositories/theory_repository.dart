@@ -55,4 +55,26 @@ class TheoryRepository {
     }
     return result;
   }
+
+  Future<int> getVocabularyCount() async {
+    try {
+      final data = await _client
+          .from('vocabulary')
+          .select('id');
+      return (data as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> getGrammarCount() async {
+    try {
+      final data = await _client
+          .from('grammar')
+          .select('id');
+      return (data as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
 }

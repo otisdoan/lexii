@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -190,7 +189,8 @@ class _ListeningQuestionPageState
 
     // Secondary fallback for Part 6: group every 4 consecutive questions
     // within the same part (Text Completion — 4 questions per passage)
-    final partNumber = _cachedParts
+    int? partNumber = widget.isPracticeMode ? widget.partNumber : null;
+    partNumber ??= _cachedParts
         .where((p) => p.id == partId)
         .firstOrNull
         ?.partNumber;
@@ -232,6 +232,25 @@ class _ListeningQuestionPageState
   /// Returns the index of the first question of the group containing [index].
   int _groupStart(int index, List<QuestionModel> questions) {
     return _groupFor(index, questions).first;
+  }
+
+  /// Cắt mảng câu hỏi theo group hoàn chỉnh (audio/image),
+  /// đảm bảo không cắt ngang giữa các nhóm media.
+  List<QuestionModel> _truncateToCompleteGroups(
+      List<QuestionModel> questions, int limit) {
+    if (limit <= 0 || limit >= questions.length) return questions;
+
+    final result = <QuestionModel>[];
+    int i = 0;
+    while (i < questions.length && result.length < limit) {
+      final group = _groupFor(i, questions);
+      if (result.length + group.length > limit) break;
+      for (final idx in group) {
+        result.add(questions[idx]);
+      }
+      i = group.last + 1;
+    }
+    return result;
   }
 
   int _displayQuestionNumber(int index, List<QuestionModel> questions) {
@@ -885,8 +904,9 @@ class _ListeningQuestionPageState
         widget.questionIds!.isNotEmpty)
       ? ref.watch(questionsByIdsProvider(widget.questionIds!))
       : (widget.partNumber != null && widget.isPracticeMode)
-        ? ref.watch(
-          questionsByListeningPartNumberProvider(widget.partNumber!))
+        ? (widget.partNumber! >= 5 
+            ? ref.watch(questionsByReadingPartNumberProvider(widget.partNumber!))
+            : ref.watch(questionsByListeningPartNumberProvider(widget.partNumber!)))
         : widget.partId != null
           ? ref.watch(questionsByPartIdProvider(widget.partId!))
           : ref.watch(questionsByTestIdProvider(widget.testId));
@@ -940,10 +960,10 @@ class _ListeningQuestionPageState
           if (widget.randomizeQuestions) {
             questions.shuffle();
           }
-          if (widget.questionLimit != null &&
-              widget.questionLimit! < questions.length) {
-            questions = questions.sublist(0, widget.questionLimit!);
-          }
+            // Truncate to complete groups (never cut mid-group)
+            if (widget.questionLimit != null && widget.questionLimit! > 0) {
+              questions = _truncateToCompleteGroups(questions, widget.questionLimit!);
+            }
           if (questions.isEmpty) {
             return Center(
               child: Column(
@@ -1017,20 +1037,19 @@ class _ListeningQuestionPageState
           final groupIndices = _groupFor(_currentIndex, questions);
           final isGroup = groupIndices.length > 1;
 
-          // Debug: log group info for current question
-          dev.log(
-            'Q[$_currentIndex] orderIndex=${questions[_currentIndex].orderIndex} '
-            'partId=${questions[_currentIndex].partId} '
-            'passageId=${questions[_currentIndex].passageId} '
-            'passageContent=${questions[_currentIndex].passageContent?.substring(0, (questions[_currentIndex].passageContent?.length ?? 0).clamp(0, 40))} '
-            'groupIndices=$groupIndices',
-            name: 'GroupDebug',
-          );
+          // Find first question in current group (for media)
+          final groupFirstIndex = groupIndices.first;
+          final currentPartNumber = (widget.isPracticeMode && widget.partNumber != null)
+              ? widget.partNumber!
+              : _cachedParts
+                  .where((p) => questions.isNotEmpty && p.id == questions[groupFirstIndex].partId)
+                  .firstOrNull
+                  ?.partNumber ?? 1;
 
           return Column(
             children: [
-              _buildHeader(totalQ, questions),
-              // Question area — scrollable, fills remaining space
+              _buildHeader(totalQ, questions, currentPartNumber, answeredCount: _answers.length),
+              // Content area — scrollable, fills remaining space
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -1085,7 +1104,7 @@ class _ListeningQuestionPageState
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                'Part ${_cachedParts.where((p) => questions.isNotEmpty && p.id == questions[_currentIndex].partId).firstOrNull?.partNumber ?? 1}',
+                                'Part ${currentPartNumber}',
                                 style: GoogleFonts.lexend(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -1094,7 +1113,7 @@ class _ListeningQuestionPageState
                               ),
                               const Spacer(),
                               Text(
-                                '${_displayQuestionNumber(_currentIndex, questions)}/$totalQ',
+                                '${_answers.length}/$totalQ',
                                 style: GoogleFonts.lexend(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -1105,18 +1124,20 @@ class _ListeningQuestionPageState
                           ),
                         ),
 
-                        // ── Question card (shared audio/image) ─
-                        _buildQuestionCard(questions[_currentIndex], hideText: isGroup),
+                        // ── Media card (audio/image) ───────────────
+                        _buildMediaCard(questions[groupFirstIndex]),
                         const SizedBox(height: 20),
 
-                        // ── For each question in the group ──────
+                        // ── ALL questions in this group ──────────
+                        // Giống web: hiển thị tất cả câu trong group cùng lúc
                         ...groupIndices.map((qIdx) {
                           final q = questions[qIdx];
-                          return _buildSingleQuestionBlock(
+                          return _buildSingleQuestionCard(
                             qIdx,
                             q,
                             questions,
-                            groupIndices.length,
+                            groupSize: groupIndices.length,
+                            partNumber: currentPartNumber,
                           );
                         }),
                       ],
@@ -1125,7 +1146,7 @@ class _ListeningQuestionPageState
                 ),
               ),
               // Audio bar — fixed at bottom
-              _buildAudioBar(questions[_currentIndex], totalQ, questions),
+              _buildAudioBar(questions[groupFirstIndex], totalQ, questions),
             ],
           );
         },
@@ -1136,7 +1157,7 @@ class _ListeningQuestionPageState
 
   /// Compact header: Row 1 has back + timer + tools + nộp bài
   /// Row 2 has tool icons
-  Widget _buildHeader(int totalQ, List<QuestionModel> questions) {
+  Widget _buildHeader(int totalQ, List<QuestionModel> questions, int currentPartNumber, {int answeredCount = 0}) {
     final timerStr =
         '${_hours.toString().padLeft(2, '0')}:${_minutes.toString().padLeft(2, '0')}:${_seconds.toString().padLeft(2, '0')}';
 
@@ -1256,6 +1277,243 @@ class _ListeningQuestionPageState
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Media-only card (image / passage). Giống cột trái của web.
+  Widget _buildMediaCard(QuestionModel question) {
+    final hasPassage = question.passageContent != null &&
+        question.passageContent!.isNotEmpty;
+    final isReadingCard = hasPassage;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: isReadingCard
+                  ? const Color(0xFFEFF6FF).withValues(alpha: 0.8)
+                  : const Color(0xFFFEF9C3).withValues(alpha: 0.5),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+              border: Border(
+                bottom: BorderSide(
+                  color: isReadingCard
+                      ? const Color(0xFF3B82F6).withValues(alpha: 0.2)
+                      : const Color(0xFFEAB308).withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isReadingCard
+                      ? Icons.article_outlined
+                      : (question.imageUrl != null ? Icons.image : Icons.headphones),
+                  color: isReadingCard
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFFCA8A04),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isReadingCard ? 'ĐOẠN VĂN' : 'AUDIO',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isReadingCard
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFCA8A04),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Passage text (Part 6 / Part 7)
+          if (hasPassage)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                question.passageContent!,
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textSlate800,
+                  height: 1.7,
+                ),
+              ),
+            )
+          // Image
+          else if (question.imageUrl != null)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: CachedNetworkImage(
+                    imageUrl: question.imageUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: AppColors.slate100,
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: AppColors.slate100,
+                      child: const Center(
+                        child: Icon(Icons.broken_image,
+                            size: 48, color: AppColors.textSlate300),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          // Placeholder when no media
+          else
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.headphones, size: 40, color: AppColors.textSlate300),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Nghe audio để trả lời câu hỏi',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        color: AppColors.textSlate400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Card cho một câu hỏi. Giống web: number badge + Part + options.
+  Widget _buildSingleQuestionCard(
+    int qIdx,
+    QuestionModel q,
+    List<QuestionModel> questions, {
+    required int groupSize,
+    required int partNumber,
+  }) {
+    final isPart12 = partNumber <= 2;
+    final labels = ['A', 'B', 'C', 'D'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Question number + Part badge
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${_displayQuestionNumber(qIdx, questions)}',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Part $partNumber',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    color: AppColors.textSlate400,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Question text (if exists, for Part 3/4)
+            if (q.questionText != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  q.questionText!,
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSlate800,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+
+            // Options
+            ...q.options.asMap().entries.map((entry) {
+              final optIdx = entry.key;
+              final opt = entry.value;
+              final letter = labels[optIdx];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildAnswerOption(
+                  qIdx,
+                  optIdx,
+                  letter,
+                  opt.content,
+                  questions,
+                  isPart12: isPart12,
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );
@@ -1520,215 +1778,12 @@ class _ListeningQuestionPageState
     );
   }
 
-  Widget _buildQuestionCard(QuestionModel question, {bool hideText = false}) {
-    final hasPassage = question.passageContent != null &&
-        question.passageContent!.isNotEmpty;
-    final isReadingCard = hasPassage;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: isReadingCard
-                  ? const Color(0xFFEFF6FF).withValues(alpha: 0.8)
-                  : const Color(0xFFFEF9C3).withValues(alpha: 0.5),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: isReadingCard
-                      ? const Color(0xFF3B82F6).withValues(alpha: 0.2)
-                      : const Color(0xFFEAB308).withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isReadingCard
-                      ? Icons.article_outlined
-                      : (question.imageUrl != null
-                          ? Icons.image
-                          : Icons.headphones),
-                  color: isReadingCard
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFFCA8A04),
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isReadingCard ? 'ĐOẠN VĂN' : 'SELECT THE ANSWER',
-                  style: GoogleFonts.lexend(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: isReadingCard
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFFCA8A04),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Passage text (Part 6 / Part 7)
-          if (hasPassage)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                question.passageContent!,
-                style: GoogleFonts.lexend(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textSlate800,
-                  height: 1.7,
-                ),
-              ),
-            )
-          // Image
-          else if (question.imageUrl != null)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: AspectRatio(
-                  aspectRatio: 4 / 3,
-                  child: CachedNetworkImage(
-                    imageUrl: question.imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.slate100,
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.slate100,
-                      child: const Center(
-                        child: Icon(Icons.broken_image,
-                            size: 48, color: AppColors.textSlate300),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            )
-          // Single question text (no passage, no image)
-          else if (!hideText && question.questionText != null)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                question.questionText!,
-                style: GoogleFonts.lexend(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSlate800,
-                  height: 1.5,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Renders a single question sub-block inside a group.
-  /// [groupSize] == 1 → no sub-label shown (same as before).
-  Widget _buildSingleQuestionBlock(
-    int qIdx,
-    QuestionModel q,
-    List<QuestionModel> questions,
-    int groupSize,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Sub-question label when inside a group (e.g. "Câu 32", "Câu 33")
-          if (groupSize > 1) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.indigo100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Câu ${_displayQuestionNumber(qIdx, questions)}',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.indigo600,
-                      ),
-                    ),
-                  ),
-                  if (q.questionText != null) ...[
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        q.questionText!,
-                        style: GoogleFonts.lexend(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSlate800,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ] else if (q.questionText != null) ...[
-            // Single question — show question text inside card already, skip
-          ],
-          // Answer options
-          ...q.options.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final opt = entry.value;
-            final letter = String.fromCharCode(65 + idx);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _buildAnswerOption(
-                qIdx,
-                idx,
-                letter,
-                opt.content,
-                questions,
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
+  /// Question card for the question (passage/image/text).
 
   Widget _buildAnswerOption(
-      int questionIdx, int optionIdx, String letter, String text, List<QuestionModel> questions) {
+      int questionIdx, int optionIdx, String letter, String text, List<QuestionModel> questions, {
+      bool isPart12 = false,
+      }) {
     final isSelected = _answers[questionIdx] == optionIdx;
     return Material(
       color: Colors.transparent,
@@ -1758,7 +1813,9 @@ class _ListeningQuestionPageState
           if (isLastOfPart && !widget.isPracticeMode) {
             final currentPart =
                 _cachedParts.where((p) => p.id == currentPartId).firstOrNull;
-            final currentPartNumber = currentPart?.partNumber ?? 1;
+            final currentPartNumber = (widget.isPracticeMode && widget.partNumber != null)
+                ? widget.partNumber!
+                : currentPart?.partNumber ?? 1;
             final nextPartNumber = currentPartNumber + 1;
             final nextPartExists =
                 _cachedParts.any((p) => p.partNumber == nextPartNumber);
@@ -1784,7 +1841,7 @@ class _ListeningQuestionPageState
             });
           }
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(12),
@@ -1792,80 +1849,60 @@ class _ListeningQuestionPageState
             color: isSelected
                 ? AppColors.primary.withValues(alpha: 0.05)
                 : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected ? AppColors.primary : Colors.transparent,
+              color: isSelected ? AppColors.primary : AppColors.borderSlate100,
               width: isSelected ? 2 : 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
-              // Letter
+              // Letter badge
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isSelected ? AppColors.primary : AppColors.slate100,
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color:
-                                AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
                 ),
                 child: Center(
                   child: Text(
                     letter,
                     style: GoogleFonts.lexend(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.textSlate600,
+                      color: isSelected ? Colors.white : AppColors.textSlate600,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  text,
+                  isPart12 ? 'Đáp án $letter' : text,
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected
-                        ? AppColors.textSlate900
-                        : AppColors.textSlate800,
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isPart12
+                        ? (isSelected ? AppColors.primary : AppColors.textSlate400)
+                        : (isSelected ? AppColors.textSlate900 : AppColors.textSlate600),
                   ),
-                ),
-              ),
-              // Radio
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.borderSlate200,
-                    width: isSelected ? 6 : 2,
-                  ),
-                  color: Colors.white,
                 ),
               ),
             ],
@@ -1965,7 +2002,7 @@ class _ListeningQuestionPageState
                         ),
                       ),
                       Text(
-                        'TOEIC Listening Part ${_cachedParts.where((p) => questions.isNotEmpty && p.id == questions[_currentIndex].partId).firstOrNull?.partNumber ?? 1}',
+                        'TOEIC ${(widget.isPracticeMode && widget.partNumber != null && widget.partNumber! >= 5) ? 'Reading' : 'Listening'} Part ${(widget.isPracticeMode && widget.partNumber != null) ? widget.partNumber! : (_cachedParts.where((p) => questions.isNotEmpty && p.id == questions[_currentIndex].partId).firstOrNull?.partNumber ?? 1)}',
                         style: GoogleFonts.lexend(
                           fontSize: 10,
                           color: const Color(0xFF94A3B8),

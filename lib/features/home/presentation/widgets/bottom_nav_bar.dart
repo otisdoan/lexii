@@ -17,16 +17,13 @@ class BottomNavBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.95),
-        border: Border(
-          top: BorderSide(color: AppColors.borderSlate200),
-        ),
+        border: Border(top: BorderSide(color: AppColors.borderSlate200)),
       ),
       child: SafeArea(
-        
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row( 
+          child: Row(
             children: [
               _NavItem(
                 icon: Icons.local_library,
@@ -35,14 +32,14 @@ class BottomNavBar extends StatelessWidget {
                 onTap: () => onTap(0),
               ),
               _NavItem(
-                icon: Icons.schedule,
-                label: 'Thi',
+                icon: Icons.menu_book,
+                label: 'Từ điển',
                 isActive: currentIndex == 1,
                 onTap: () => onTap(1),
               ),
               _NavItem(
-                icon: Icons.workspace_premium,
-                label: 'Lý thuyết',
+                icon: Icons.schedule,
+                label: 'Thi',
                 isActive: currentIndex == 2,
                 onTap: () => onTap(2),
               ),
@@ -94,37 +91,40 @@ class _NavItem extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon container
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 48,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(9999),
-                    color: isActive
-                        ? AppColors.primary.withValues(alpha: 0.1)
-                        : Colors.transparent,
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 22,
-                    color: isActive ? AppColors.primary : AppColors.textSlate400,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: GoogleFonts.lexend(
-                    fontSize: 10,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    color:
-                        isActive ? AppColors.primary : AppColors.textSlate500,
-                  ),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon container
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 48,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(9999),
+                      color: isActive
+                          ? AppColors.primary.withValues(alpha: 0.1)
+                          : Colors.transparent,
                     ),
-              ],
-            ),
+                    child: Icon(
+                      icon,
+                      size: 22,
+                      color: isActive
+                          ? AppColors.primary
+                          : AppColors.textSlate400,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: GoogleFonts.lexend(
+                      fontSize: 10,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive
+                          ? AppColors.primary
+                          : AppColors.textSlate500,
+                    ),
+                  ),
+                ],
+              ),
             ),
             // Badge
             if (badge != null)

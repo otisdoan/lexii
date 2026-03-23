@@ -18,6 +18,7 @@ class PracticePartData {
   final int correctAnswers;
   final int totalAnswered;
   final bool isLocked;
+
   /// 'mcq_audio' | 'mcq_text' | 'free_text'
   final String questionType;
 
@@ -39,13 +40,45 @@ class PracticePartData {
 
   double get progressPercent =>
       totalQuestions > 0 ? correctAnswers / totalQuestions * 100 : 0;
+
+  PracticePartData copyWith({
+    String? testPartId,
+    String? testId,
+    List<String>? partIds,
+    int? partNumber,
+    String? title,
+    IconData? icon,
+    Color? iconBgColor,
+    Color? iconColor,
+    int? totalQuestions,
+    int? correctAnswers,
+    int? totalAnswered,
+    bool? isLocked,
+    String? questionType,
+  }) {
+    return PracticePartData(
+      testPartId: testPartId ?? this.testPartId,
+      testId: testId ?? this.testId,
+      partIds: partIds ?? this.partIds,
+      partNumber: partNumber ?? this.partNumber,
+      title: title ?? this.title,
+      icon: icon ?? this.icon,
+      iconBgColor: iconBgColor ?? this.iconBgColor,
+      iconColor: iconColor ?? this.iconColor,
+      totalQuestions: totalQuestions ?? this.totalQuestions,
+      correctAnswers: correctAnswers ?? this.correctAnswers,
+      totalAnswered: totalAnswered ?? this.totalAnswered,
+      isLocked: isLocked ?? this.isLocked,
+      questionType: questionType ?? this.questionType,
+    );
+  }
 }
 
 class PracticeRepository {
   final SupabaseClient _client;
 
   PracticeRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   // ── Part display metadata ────────────────────────────────────
   static const _blue50 = Color(0xFFEFF6FF);
@@ -61,41 +94,61 @@ class PracticeRepository {
 
   static String _listeningTitle(int n) {
     switch (n) {
-      case 1: return 'Part 1: Mô tả tranh';
-      case 2: return 'Part 2: Hỏi & Đáp';
-      case 3: return 'Part 3: Đoạn Hội Thoại';
-      case 4: return 'Part 4: Bài Nói Chuyện Ngắn';
-      default: return 'Part $n';
+      case 1:
+        return 'Part 1: Mô tả tranh';
+      case 2:
+        return 'Part 2: Hỏi & Đáp';
+      case 3:
+        return 'Part 3: Đoạn Hội Thoại';
+      case 4:
+        return 'Part 4: Bài Nói Chuyện Ngắn';
+      default:
+        return 'Part $n';
     }
   }
 
   static IconData _listeningIcon(int n) {
     switch (n) {
-      case 1: return Icons.image;
-      case 2: return Icons.record_voice_over;
-      case 3: return Icons.forum;
-      case 4: return Icons.graphic_eq;
-      default: return Icons.quiz;
+      case 1:
+        return Icons.image;
+      case 2:
+        return Icons.record_voice_over;
+      case 3:
+        return Icons.forum;
+      case 4:
+        return Icons.graphic_eq;
+      default:
+        return Icons.quiz;
     }
   }
 
   static Color _listeningBg(int n) {
     switch (n) {
-      case 1: return _blue50;
-      case 2: return _purple50;
-      case 3: return _teal50;
-      case 4: return _green50;
-      default: return AppColors.teal50;
+      case 1:
+        return _blue50;
+      case 2:
+        return _purple50;
+      case 3:
+        return _teal50;
+      case 4:
+        return _green50;
+      default:
+        return AppColors.teal50;
     }
   }
 
   static Color _listeningFg(int n) {
     switch (n) {
-      case 1: return _blue600;
-      case 2: return _purple600;
-      case 3: return _teal600;
-      case 4: return _green600;
-      default: return AppColors.primary;
+      case 1:
+        return _blue600;
+      case 2:
+        return _purple600;
+      case 3:
+        return _teal600;
+      case 4:
+        return _green600;
+      default:
+        return AppColors.primary;
     }
   }
 
@@ -104,26 +157,32 @@ class PracticeRepository {
   /// Returns Part 1–4 data for [testId], enriched with the current user's
   /// progress (history from all full tests).
   Future<List<PracticePartData>> getListeningParts() async {
-    developer.log('Loading listening parts across all full tests',
-        name: 'PracticeRepo');
+    developer.log(
+      'Loading listening parts across all full tests',
+      name: 'PracticeRepo',
+    );
 
-    final testsResponse = await _client
-        .from('tests')
-        .select('id')
-        .eq('type', 'full_test')
-        .order('created_at', ascending: true) as List<dynamic>;
+    final testsResponse =
+        await _client
+                .from('tests')
+                .select('id')
+                .eq('type', 'full_test')
+                .order('created_at', ascending: true)
+            as List<dynamic>;
 
     if (testsResponse.isEmpty) return [];
 
     final testIds = testsResponse.map((t) => t['id'] as String).toList();
     final fallbackTestId = testIds.first;
 
-    final partsResponse = await _client
-        .from('test_parts')
-        .select('id, part_number, test_id')
-        .inFilter('test_id', testIds)
-        .inFilter('part_number', [1, 2, 3, 4])
-        .order('part_number', ascending: true) as List<dynamic>;
+    final partsResponse =
+        await _client
+                .from('test_parts')
+                .select('id, part_number, test_id')
+                .inFilter('test_id', testIds)
+                .inFilter('part_number', [1, 2, 3, 4])
+                .order('part_number', ascending: true)
+            as List<dynamic>;
 
     if (partsResponse.isEmpty) return [];
 
@@ -144,10 +203,12 @@ class PracticeRepository {
 
     final allPartIds = partNumberById.keys.toList();
 
-    final questionsResponse = await _client
-        .from('questions')
-        .select('id, part_id')
-        .inFilter('part_id', allPartIds) as List<dynamic>;
+    final questionsResponse =
+        await _client
+                .from('questions')
+                .select('id, part_id')
+                .inFilter('part_id', allPartIds)
+            as List<dynamic>;
 
     final questionCountsByPartId = <String, int>{};
     for (final q in questionsResponse) {
@@ -159,10 +220,12 @@ class PracticeRepository {
     final userId = _client.auth.currentUser?.id;
 
     if (userId != null) {
-      final historyResponse = await _client
-          .from('listening_answer_history')
-          .select('is_correct, questions!inner(part_id)')
-          .eq('user_id', userId) as List<dynamic>;
+      final historyResponse =
+          await _client
+                  .from('listening_answer_history')
+                  .select('is_correct, questions!inner(part_id)')
+                  .eq('user_id', userId)
+              as List<dynamic>;
 
       for (final row in historyResponse) {
         final questionPartId =
@@ -206,62 +269,84 @@ class PracticeRepository {
 
   static String _readingTitle(int n) {
     switch (n) {
-      case 5: return 'Part 5: Điền Vào Câu';
-      case 6: return 'Part 6: Điền Vào Đoạn Văn';
-      case 7: return 'Part 7: Đọc Hiểu Đoạn Văn';
-      default: return 'Part $n';
+      case 5:
+        return 'Part 5: Điền Vào Câu';
+      case 6:
+        return 'Part 6: Điền Vào Đoạn Văn';
+      case 7:
+        return 'Part 7: Đọc Hiểu Đoạn Văn';
+      default:
+        return 'Part $n';
     }
   }
 
   static IconData _readingIcon(int n) {
     switch (n) {
-      case 5: return Icons.text_fields;
-      case 6: return Icons.article;
-      case 7: return Icons.menu_book;
-      default: return Icons.quiz;
+      case 5:
+        return Icons.text_fields;
+      case 6:
+        return Icons.article;
+      case 7:
+        return Icons.menu_book;
+      default:
+        return Icons.quiz;
     }
   }
 
   static Color _readingBg(int n) {
     switch (n) {
-      case 5: return _blue50;
-      case 6: return _purple50;
-      case 7: return _green50;
-      default: return AppColors.teal50;
+      case 5:
+        return _blue50;
+      case 6:
+        return _purple50;
+      case 7:
+        return _green50;
+      default:
+        return AppColors.teal50;
     }
   }
 
   static Color _readingFg(int n) {
     switch (n) {
-      case 5: return _blue600;
-      case 6: return _purple600;
-      case 7: return _green600;
-      default: return AppColors.primary;
+      case 5:
+        return _blue600;
+      case 6:
+        return _purple600;
+      case 7:
+        return _green600;
+      default:
+        return AppColors.primary;
     }
   }
 
   /// Returns Part 5–7 data aggregated from all full tests, enriched with user progress.
   Future<List<PracticePartData>> getReadingParts() async {
-    developer.log('Loading reading parts across all full tests',
-        name: 'PracticeRepo');
+    developer.log(
+      'Loading reading parts across all full tests',
+      name: 'PracticeRepo',
+    );
 
-    final testsResponse = await _client
-        .from('tests')
-        .select('id')
-        .eq('type', 'full_test')
-        .order('created_at', ascending: true) as List<dynamic>;
+    final testsResponse =
+        await _client
+                .from('tests')
+                .select('id')
+                .eq('type', 'full_test')
+                .order('created_at', ascending: true)
+            as List<dynamic>;
 
     if (testsResponse.isEmpty) return [];
 
     final testIds = testsResponse.map((t) => t['id'] as String).toList();
     final fallbackTestId = testIds.first;
 
-    final partsResponse = await _client
-        .from('test_parts')
-        .select('id, part_number, test_id')
-        .inFilter('test_id', testIds)
-        .inFilter('part_number', [5, 6, 7])
-        .order('part_number', ascending: true) as List<dynamic>;
+    final partsResponse =
+        await _client
+                .from('test_parts')
+                .select('id, part_number, test_id')
+                .inFilter('test_id', testIds)
+                .inFilter('part_number', [5, 6, 7])
+                .order('part_number', ascending: true)
+            as List<dynamic>;
 
     if (partsResponse.isEmpty) return [];
 
@@ -281,10 +366,12 @@ class PracticeRepository {
 
     final allPartIds = partNumberById.keys.toList();
 
-    final questionsResponse = await _client
-        .from('questions')
-        .select('id, part_id')
-        .inFilter('part_id', allPartIds) as List<dynamic>;
+    final questionsResponse =
+        await _client
+                .from('questions')
+                .select('id, part_id')
+                .inFilter('part_id', allPartIds)
+            as List<dynamic>;
 
     final questionCountsByPartId = <String, int>{};
     for (final q in questionsResponse) {
@@ -296,21 +383,25 @@ class PracticeRepository {
     final userId = _client.auth.currentUser?.id;
 
     if (userId != null) {
-      final attemptsResponse = await _client
-          .from('attempts')
-          .select('id')
-          .eq('user_id', userId)
-          .inFilter('test_id', testIds) as List<dynamic>;
+      final attemptsResponse =
+          await _client
+                  .from('attempts')
+                  .select('id')
+                  .eq('user_id', userId)
+                  .inFilter('test_id', testIds)
+              as List<dynamic>;
 
       if (attemptsResponse.isNotEmpty) {
         final attemptIds = attemptsResponse
             .map((a) => a['id'] as String)
             .toList();
 
-        final answersResponse = await _client
-            .from('answers')
-            .select('is_correct, questions!inner(part_id)')
-            .inFilter('attempt_id', attemptIds) as List<dynamic>;
+        final answersResponse =
+            await _client
+                    .from('answers')
+                    .select('is_correct, questions!inner(part_id)')
+                    .inFilter('attempt_id', attemptIds)
+                as List<dynamic>;
 
         for (final row in answersResponse) {
           final questionPartId =
@@ -355,37 +446,53 @@ class PracticeRepository {
 
   static String _writingTitle(int n) {
     switch (n) {
-      case 1: return 'Part 1: Mô tả tranh';
-      case 2: return 'Part 2: Phản hồi yêu cầu';
-      case 3: return 'Part 3: Viết luận';
-      default: return 'Part $n';
+      case 1:
+        return 'Part 1: Mô tả tranh';
+      case 2:
+        return 'Part 2: Phản hồi yêu cầu';
+      case 3:
+        return 'Part 3: Viết luận';
+      default:
+        return 'Part $n';
     }
   }
 
   static IconData _writingIcon(int n) {
     switch (n) {
-      case 1: return Icons.image;
-      case 2: return Icons.email;
-      case 3: return Icons.edit_note;
-      default: return Icons.edit;
+      case 1:
+        return Icons.image;
+      case 2:
+        return Icons.email;
+      case 3:
+        return Icons.edit_note;
+      default:
+        return Icons.edit;
     }
   }
 
   static Color _writingBg(int n) {
     switch (n) {
-      case 1: return _blue50;
-      case 2: return _purple50;
-      case 3: return _amber50;
-      default: return AppColors.teal50;
+      case 1:
+        return _blue50;
+      case 2:
+        return _purple50;
+      case 3:
+        return _amber50;
+      default:
+        return AppColors.teal50;
     }
   }
 
   static Color _writingFg(int n) {
     switch (n) {
-      case 1: return _blue600;
-      case 2: return _purple600;
-      case 3: return _amber600;
-      default: return AppColors.primary;
+      case 1:
+        return _blue600;
+      case 2:
+        return _purple600;
+      case 3:
+        return _amber600;
+      default:
+        return AppColors.primary;
     }
   }
 
@@ -411,8 +518,249 @@ class PracticeRepository {
         totalQuestions: total,
         totalAnswered: answered,
         correctAnswers: 0,
-        isLocked: total == 0,
+        isLocked: false, // Writing is free
         questionType: 'free_text',
+      );
+    }).toList();
+  }
+
+  // ── Speaking metadata ─────────────────────────────────────────
+
+  static String _speakingTitle(int n) {
+    switch (n) {
+      case 1:
+        return 'Part 1: Read a Text Aloud';
+      case 2:
+        return 'Part 2: Describe a Picture';
+      case 3:
+        return 'Part 3: Respond to Questions';
+      case 4:
+        return 'Part 4: Respond using Information';
+      case 5:
+        return 'Part 5: Express an Opinion';
+      default:
+        return 'Part $n';
+    }
+  }
+
+  static IconData _speakingIcon(int n) {
+    switch (n) {
+      case 1:
+        return Icons.record_voice_over;
+      case 2:
+        return Icons.image;
+      case 3:
+        return Icons.question_answer;
+      case 4:
+        return Icons.fact_check;
+      case 5:
+        return Icons.campaign;
+      default:
+        return Icons.mic;
+    }
+  }
+
+  static Color _speakingBg(int n) {
+    switch (n) {
+      case 1:
+        return _amber50;
+      case 2:
+        return _blue50;
+      case 3:
+        return _teal50;
+      case 4:
+        return _purple50;
+      case 5:
+        return _green50;
+      default:
+        return AppColors.teal50;
+    }
+  }
+
+  static Color _speakingFg(int n) {
+    switch (n) {
+      case 1:
+        return _amber600;
+      case 2:
+        return _blue600;
+      case 3:
+        return _teal600;
+      case 4:
+        return _purple600;
+      case 5:
+        return _green600;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  static int? _speakingPartFromTaskType(String? type) {
+    switch ((type ?? '').trim().toLowerCase()) {
+      case 'read_aloud':
+        return 1;
+      case 'describe_picture':
+        return 2;
+      case 'respond_questions':
+        return 3;
+      case 'respond_information':
+        return 4;
+      case 'express_opinion':
+        return 5;
+      default:
+        return null;
+    }
+  }
+
+  static int? _inferSpeakingPartFromQuestionId(String questionId) {
+    if (questionId.startsWith('sp-read-')) return 1;
+    if (questionId.startsWith('sp-picture-')) return 2;
+    if (questionId.startsWith('sp-respond-')) return 3;
+    if (questionId.startsWith('sp-info-')) return 4;
+    if (questionId.startsWith('sp-opinion-')) return 5;
+    return null;
+  }
+
+  Future<List<PracticePartData>> getSpeakingParts() async {
+    developer.log('Loading speaking parts', name: 'PracticeRepo');
+
+    // Align with web: count questions from speaking_prompts by part_number.
+    final countsByPart = <int, int>{};
+    try {
+      final rows =
+          await _client.from('speaking_prompts').select('part_number')
+              as List<dynamic>;
+      for (final row in rows) {
+        final partNumber =
+            ((row as Map<String, dynamic>)['part_number'] as num?)?.toInt();
+        if (partNumber == null) continue;
+        countsByPart[partNumber] = (countsByPart[partNumber] ?? 0) + 1;
+      }
+    } catch (_) {
+      // If table is unavailable, keep UI usable with zero-count fallback.
+    }
+
+    final hasRemoteCounts = countsByPart.isNotEmpty;
+    final userId = _client.auth.currentUser?.id;
+    final answeredByPart = <int, int>{};
+    final passedByPart = <int, int>{};
+
+    if (userId != null) {
+      try {
+        final answerRows =
+            await _client
+                    .from('speaking_answers')
+                    .select('id, question_id')
+                    .eq('user_id', userId)
+                as List<dynamic>;
+
+        if (answerRows.isNotEmpty) {
+          final answerIds = <String>[];
+          final answerPartById = <String, int>{};
+          final promptIds = answerRows
+              .map(
+                (e) => (e as Map<String, dynamic>)['question_id']?.toString(),
+              )
+              .whereType<String>()
+              .toSet()
+              .toList();
+
+          final promptPartById = <String, int>{};
+          if (promptIds.isNotEmpty) {
+            final promptRows =
+                await _client
+                        .from('speaking_prompts')
+                        .select('id, part_number')
+                        .inFilter('id', promptIds)
+                    as List<dynamic>;
+            for (final row in promptRows) {
+              final map = row as Map<String, dynamic>;
+              final id = map['id']?.toString();
+              final part = (map['part_number'] as num?)?.toInt();
+              if (id != null && part != null) {
+                promptPartById[id] = part;
+              }
+            }
+          }
+
+          final unresolvedPromptIds = promptIds
+              .where((id) => !promptPartById.containsKey(id))
+              .toList();
+          final questionPartById = <String, int>{};
+          if (unresolvedPromptIds.isNotEmpty) {
+            try {
+              final questionRows =
+                  await _client
+                          .from('speaking_questions')
+                          .select('id, type')
+                          .inFilter('id', unresolvedPromptIds)
+                      as List<dynamic>;
+              for (final row in questionRows) {
+                final map = row as Map<String, dynamic>;
+                final id = map['id']?.toString();
+                final part = _speakingPartFromTaskType(map['type']?.toString());
+                if (id != null && part != null) {
+                  questionPartById[id] = part;
+                }
+              }
+            } catch (_) {
+              // Optional fallback source only.
+            }
+          }
+
+          for (final row in answerRows) {
+            final map = row as Map<String, dynamic>;
+            final answerId = map['id']?.toString();
+            final promptId = map['question_id']?.toString();
+            if (answerId == null || promptId == null) continue;
+            final part =
+                promptPartById[promptId] ??
+                questionPartById[promptId] ??
+                _inferSpeakingPartFromQuestionId(promptId);
+            if (part == null) continue;
+            answerIds.add(answerId);
+            answerPartById[answerId] = part;
+            answeredByPart[part] = (answeredByPart[part] ?? 0) + 1;
+          }
+
+          if (answerIds.isNotEmpty) {
+            final aiRows =
+                await _client
+                        .from('ai_speaking_evaluations')
+                        .select('answer_id, overall_score')
+                        .inFilter('answer_id', answerIds)
+                    as List<dynamic>;
+            for (final row in aiRows) {
+              final map = row as Map<String, dynamic>;
+              final answerId = map['answer_id']?.toString();
+              final score = (map['overall_score'] as num?)?.toInt() ?? 0;
+              if (answerId == null || score < 60) continue;
+              final part = answerPartById[answerId];
+              if (part == null) continue;
+              passedByPart[part] = (passedByPart[part] ?? 0) + 1;
+            }
+          }
+        }
+      } catch (_) {
+        // Keep screen usable even if answer/evaluation tables are unavailable.
+      }
+    }
+
+    return [1, 2, 3, 4, 5].map((partNumber) {
+      final total = countsByPart[partNumber] ?? (hasRemoteCounts ? 0 : 5);
+      final answered = answeredByPart[partNumber] ?? 0;
+      return PracticePartData(
+        testPartId: partNumber.toString(),
+        testId: '',
+        partNumber: partNumber,
+        title: _speakingTitle(partNumber),
+        icon: _speakingIcon(partNumber),
+        iconBgColor: _speakingBg(partNumber),
+        iconColor: _speakingFg(partNumber),
+        totalQuestions: total,
+        totalAnswered: answered,
+        correctAnswers: passedByPart[partNumber] ?? 0,
+        isLocked: false,
+        questionType: 'voice',
       );
     }).toList();
   }

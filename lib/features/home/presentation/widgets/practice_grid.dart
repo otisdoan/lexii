@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 
-class PracticeGrid extends StatelessWidget {
+class PracticeGrid extends ConsumerWidget {
   const PracticeGrid({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPremiumAsync = ref.watch(isPremiumProvider);
+    final isPremiumUser = isPremiumAsync.valueOrNull ?? false;
+
     return Column(
       children: [
-        // Section header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -25,21 +29,10 @@ class PracticeGrid extends StatelessWidget {
                 ),
               ),
             ),
-            TextButton(
-              onPressed: () {},
-              child: Text(
-                'Xem tất cả',
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
+
           ],
         ),
         const SizedBox(height: 12),
-        // 2x2 Grid
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
@@ -47,7 +40,7 @@ class PracticeGrid extends StatelessWidget {
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
           childAspectRatio: 1.3,
-          children: const [
+          children: [
             _PracticeCard(
               icon: Icons.headphones,
               title: 'Nghe Hiểu',
@@ -63,14 +56,20 @@ class PracticeGrid extends StatelessWidget {
             _PracticeCard(
               icon: Icons.mic,
               title: 'Luyện nói',
-              subtitle: 'Speaking',
-              route: '/practice/speaking',
+              subtitle: isPremiumUser ? 'Speaking' : 'Premium',
+              route: isPremiumUser ? '/practice/speaking' : '/upgrade',
+              isLocked: !isPremiumUser,
+              iconBgColor: AppColors.orange50,
+              iconColor: AppColors.orange500,
             ),
             _PracticeCard(
               icon: Icons.edit,
               title: 'Viết',
-              subtitle: 'Writing',
-              route: '/practice/writing',
+              subtitle: isPremiumUser ? 'Writing' : 'Premium',
+              route: isPremiumUser ? '/practice/writing' : '/upgrade',
+              isLocked: !isPremiumUser,
+              iconBgColor: AppColors.purple50,
+              iconColor: AppColors.purple500,
             ),
           ],
         ),
@@ -84,12 +83,18 @@ class _PracticeCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String route;
+  final bool isLocked;
+  final Color iconBgColor;
+  final Color iconColor;
 
   const _PracticeCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.route,
+    this.isLocked = false,
+    this.iconBgColor = AppColors.teal50,
+    this.iconColor = AppColors.primary,
   });
 
   @override
@@ -104,7 +109,9 @@ class _PracticeCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderSlate100),
+            border: Border.all(
+              color: isLocked ? const Color(0xFFFED7AA) : AppColors.borderSlate100,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
@@ -116,19 +123,38 @@ class _PracticeCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icon circle
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.teal50,
-                ),
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: AppColors.primary,
-                ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: iconBgColor,
+                    ),
+                    child: Icon(icon, size: 24, color: iconColor),
+                  ),
+                  if (isLocked)
+                    Positioned(
+                      right: -4,
+                      bottom: -4,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFD97706),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(
+                          Icons.lock,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(
@@ -136,7 +162,7 @@ class _PracticeCard extends StatelessWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textSlate900,
+                  color: isLocked ? const Color(0xFF92400E) : AppColors.textSlate900,
                 ),
               ),
               const SizedBox(height: 2),
@@ -144,7 +170,7 @@ class _PracticeCard extends StatelessWidget {
                 subtitle,
                 style: GoogleFonts.lexend(
                   fontSize: 12,
-                  color: AppColors.textSlate500,
+                  color: isLocked ? const Color(0xFFD97706) : AppColors.textSlate500,
                 ),
               ),
             ],

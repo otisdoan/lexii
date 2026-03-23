@@ -112,10 +112,7 @@ class _UpgradePageState extends ConsumerState<UpgradePage> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: 3,
-        onTap: _onNavTap,
-      ),
+      bottomNavigationBar: BottomNavBar(currentIndex: 3, onTap: _onNavTap),
     );
   }
 
@@ -125,10 +122,10 @@ class _UpgradePageState extends ConsumerState<UpgradePage> {
         context.go('/home');
         return;
       case 1:
-        context.go('/exam/mock-test');
+        context.go('/theory');
         return;
       case 2:
-        context.go('/theory');
+        context.go('/exam/mock-test');
         return;
       case 3:
         return;
@@ -226,7 +223,8 @@ class _UpgradePageState extends ConsumerState<UpgradePage> {
         .trim();
     final normalized = raw.toLowerCase();
     final auth = Supabase.instance.client.auth;
-    final hasAuthState = auth.currentUser != null || auth.currentSession != null;
+    final hasAuthState =
+        auth.currentUser != null || auth.currentSession != null;
 
     if (normalized.contains('socketexception') ||
         normalized.contains('failed host lookup') ||
@@ -518,9 +516,7 @@ class _PlanSelector extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                color: isActive
-                    ? AppColors.primary
-                    : AppColors.textSlate300,
+                color: isActive ? AppColors.primary : AppColors.textSlate300,
               ),
             );
           }),
@@ -1026,8 +1022,54 @@ class _ComparisonRow {
   const _ComparisonRow(this.feature, this.free, this.premium);
 }
 
-class _UserReviewsSection extends StatelessWidget {
+class _UserReviewsSection extends StatefulWidget {
   const _UserReviewsSection();
+
+  @override
+  State<_UserReviewsSection> createState() => _UserReviewsSectionState();
+}
+
+class _UserReviewsSectionState extends State<_UserReviewsSection> {
+  late final Future<List<_RemoteReview>> _futureReviews = _fetchTopReviews();
+
+  Future<List<_RemoteReview>> _fetchTopReviews() async {
+    try {
+      final client = Supabase.instance.client;
+      final data = await client
+          .from('reviews')
+          .select('id,rating,content,profiles:user_id(full_name,avatar_url)')
+          .eq('rating', 5)
+          .order('created_at', ascending: false)
+          .limit(20);
+
+      final rows = (data as List).cast<Map<String, dynamic>>();
+      return rows.map((row) {
+        final dynamic profileRaw = row['profiles'];
+        Map<String, dynamic>? profile;
+        if (profileRaw is Map<String, dynamic>) {
+          profile = profileRaw;
+        } else if (profileRaw is Map) {
+          profile = profileRaw.map((k, v) => MapEntry('$k', v));
+        }
+
+        final String? rawName = (profile?['full_name'] as String?)?.trim();
+        final String? rawAvatar = (profile?['avatar_url'] as String?)?.trim();
+        final String rawContent = ('${row['content'] ?? ''}').trim();
+
+        return _RemoteReview(
+          id: '${row['id'] ?? ''}',
+          name: (rawName == null || rawName.isEmpty) ? 'Người dùng' : rawName,
+          stars: (row['rating'] as num?)?.toInt() ?? 5,
+          text: rawContent,
+          avatarUrl: (rawAvatar == null || rawAvatar.isEmpty)
+              ? null
+              : rawAvatar,
+        );
+      }).toList();
+    } catch (_) {
+      return const <_RemoteReview>[];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1043,11 +1085,88 @@ class _UserReviewsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        ..._reviews.map(
-          (review) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _ReviewCard(review: review),
-          ),
+        FutureBuilder<List<_RemoteReview>>(
+          future: _futureReviews,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Đang tải đánh giá...',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        color: AppColors.textSlate500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final reviews = snapshot.data ?? const <_RemoteReview>[];
+            if (reviews.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Chưa có đánh giá nào. Hãy là người đầu tiên!',
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    color: AppColors.textSlate500,
+                  ),
+                ),
+              );
+            }
+
+            final preview = reviews.take(5).toList();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...preview.map(
+                  (review) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ReviewCard(review: review),
+                  ),
+                ),
+                FilledButton(
+                  onPressed: () => context.push('/settings/reviews'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    textStyle: GoogleFonts.lexend(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: Text('Xem thêm đánh giá (${reviews.length})'),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -1055,7 +1174,7 @@ class _UserReviewsSection extends StatelessWidget {
 }
 
 class _ReviewCard extends StatelessWidget {
-  final _Review review;
+  final _RemoteReview review;
 
   const _ReviewCard({required this.review});
 
@@ -1082,13 +1201,18 @@ class _ReviewCard extends StatelessWidget {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: AppColors.teal50,
-                child: Text(
-                  review.name[0],
-                  style: GoogleFonts.lexend(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
+                backgroundImage: review.avatarUrl != null
+                    ? NetworkImage(review.avatarUrl!)
+                    : null,
+                child: review.avatarUrl == null
+                    ? Text(
+                        review.name.isNotEmpty ? review.name[0] : 'U',
+                        style: GoogleFonts.lexend(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 12),
               Column(
@@ -1166,12 +1290,20 @@ class _Plan {
   });
 }
 
-class _Review {
+class _RemoteReview {
+  final String id;
   final String name;
   final int stars;
   final String text;
+  final String? avatarUrl;
 
-  const _Review({required this.name, required this.stars, required this.text});
+  const _RemoteReview({
+    required this.id,
+    required this.name,
+    required this.stars,
+    required this.text,
+    this.avatarUrl,
+  });
 }
 
 const List<_Slide> _slides = [
@@ -1228,20 +1360,5 @@ const List<_Plan> _plans = [
     badge: null,
     discount: null,
     featured: false,
-  ),
-];
-
-const List<_Review> _reviews = [
-  _Review(
-    name: 'Chàng Thơ',
-    stars: 5,
-    text:
-        '"App cực kỳ chất lượng, đề thi sát với thực tế. Mình đã đạt được 850+ nhờ luyện tập đều đặn trên đây. Rất đáng đồng tiền bát gạo!"',
-  ),
-  _Review(
-    name: 'Minh Trí',
-    stars: 5,
-    text:
-        '"Giải thích chi tiết từng câu hỏi, rất dễ hiểu. Chỉ sau 2 tháng tôi đã tăng thêm 150 điểm!"',
   ),
 ];

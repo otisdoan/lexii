@@ -4,10 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lexii/core/theme/app_theme.dart';
 import 'package:lexii/config/routes/app_router.dart';
 import 'package:lexii/config/supabase_config.dart';
+import 'package:lexii/core/notifications/fcm_notification_service.dart';
+import 'package:lexii/features/settings/data/services/study_reminder_service.dart';
 
 void _authLog(String message) {
   debugPrint('[AUTH] $message');
@@ -15,6 +19,8 @@ void _authLog(String message) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // Set status bar style
   SystemChrome.setSystemUIOverlayStyle(
@@ -30,15 +36,25 @@ void main() async {
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
 
+  try {
+    await Firebase.initializeApp();
+    await FcmNotificationService.instance.initialize();
+  } catch (error) {
+    _authLog('Firebase init skipped: $error');
+  }
+
   if (kIsWeb) {
     _authLog('Initial Uri.base = ${Uri.base}');
     if ((Uri.base.queryParameters['code'] ?? '').isNotEmpty) {
-      _authLog('OAuth code detected in URL. Waiting for supabase_flutter deeplink handler.');
+      _authLog(
+        'OAuth code detected in URL. Waiting for supabase_flutter deeplink handler.',
+      );
     }
   }
 
   // Initialize router
   await AppRouter.init();
+  unawaited(StudyReminderService.instance.syncReminderFromSettings());
 
   runApp(const ProviderScope(child: LexiiApp()));
 }
@@ -58,7 +74,9 @@ class _LexiiAppState extends State<LexiiApp> {
   @override
   void initState() {
     super.initState();
-    _authStateSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authStateSub = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
       final userId = data.session?.user.id ?? 'null';
       _authLog('Auth event: ${data.event.name}, userId: $userId');
     });
@@ -98,8 +116,9 @@ class _LexiiAppState extends State<LexiiApp> {
             .toLowerCase();
 
     final status = switch (statusRaw) {
-      'success' || 'paid' || '00' => 'success',
+      'success' || 'paid' || '00' || '0' => 'success',
       'cancel' || 'cancelled' || 'canceled' => 'cancel',
+      'pending' || 'processing' => 'pending',
       _ => 'failed',
     };
 

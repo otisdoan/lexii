@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 
@@ -29,10 +30,7 @@ class NewExamBanner extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [
-                    AppColors.slate900,
-                    AppColors.slate800,
-                  ],
+                  colors: [AppColors.slate900, AppColors.slate800],
                 ),
               ),
             ),
@@ -101,7 +99,7 @@ class NewExamBanner extends StatelessWidget {
                   shape: const CircleBorder(),
                   elevation: 4,
                   child: InkWell(
-                    onTap: () {},
+                    onTap: () => context.go('/exam/mock-test'),
                     customBorder: const CircleBorder(),
                     child: Container(
                       width: 40,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 
@@ -24,9 +25,9 @@ class SpeakingWritingSection extends StatelessWidget {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () => context.push('/practice/speaking'),
                 child: Text(
-                  'Xem thêm',
+                  'Luyện ngay',
                   style: GoogleFonts.lexend(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -41,20 +42,20 @@ class SpeakingWritingSection extends StatelessWidget {
           _SwCard(
             icon: Icons.mic,
             title: 'TOEIC Speaking',
-            subtitle: 'Express yourself clearly',
+            subtitle: 'Luyện nói theo chủ đề TOEIC',
             iconBgColor: const Color(0xFFFFEDD5), // orange-100
             iconColor: const Color(0xFFEA580C), // orange-600
-            onTap: () {},
+            onTap: () => context.push('/practice/speaking'),
           ),
           const SizedBox(height: 16),
           // Writing card
           _SwCard(
             icon: Icons.edit_note,
             title: 'TOEIC Writing',
-            subtitle: 'Improve your writing skills',
+            subtitle: 'Luyện viết theo dạng bài TOEIC',
             iconBgColor: const Color(0xFFDBEAFE), // blue-100
             iconColor: const Color(0xFF2563EB), // blue-600
-            onTap: () {},
+            onTap: () => context.push('/practice/writing'),
           ),
         ],
       ),
@@ -112,9 +113,7 @@ class _SwCard extends StatelessWidget {
                     color: iconBgColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Center(
-                    child: Icon(icon, size: 28, color: iconColor),
-                  ),
+                  child: Center(child: Icon(icon, size: 28, color: iconColor)),
                 ),
                 const SizedBox(width: 16),
                 // Text
@@ -152,7 +151,7 @@ class _SwCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Start',
+                    'Bắt đầu',
                     style: GoogleFonts.lexend(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,

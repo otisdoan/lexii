@@ -13,6 +13,8 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
   final String testTitle;
   final int questionIndex;
   final Map<int, int> userAnswers;
+  /// When set, loads explicit question IDs (prioritized).
+  final List<String>? questionIds;
   /// When set, loads only this part's questions (practice mode).
   final String? partId;
 
@@ -23,6 +25,7 @@ class AnswerDetailPage extends ConsumerStatefulWidget {
     required this.questionIndex,
     this.userAnswers = const {},
     this.partId,
+    this.questionIds,
   });
 
   @override
@@ -68,9 +71,11 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final questionsAsync = widget.partId != null
-        ? ref.watch(questionsByPartIdProvider(widget.partId!))
-        : ref.watch(questionsByTestIdProvider(widget.testId));
+    final questionsAsync = widget.questionIds != null && widget.questionIds!.isNotEmpty
+        ? ref.watch(questionsByIdsProvider(widget.questionIds!))
+        : widget.partId != null
+            ? ref.watch(questionsByPartIdProvider(widget.partId!))
+            : ref.watch(questionsByTestIdProvider(widget.testId));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -95,38 +100,42 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
             });
           }
 
+          final isPracticeScoped = widget.partId != null || (widget.questionIds != null && widget.questionIds!.isNotEmpty);
+          final displayNum = isPracticeScoped ? (_currentIndex + 1) : (q.orderIndex > 0 ? q.orderIndex : _currentIndex + 1);
+
           return Column(
             children: [
-              _buildHeader(context, q.orderIndex, totalQ),
+              _buildHeader(context, displayNum, totalQ),
               _buildAudioBar(q),
               Expanded(
-                child: Stack(
+                child: Column(
                   children: [
-                    SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                          16, 16, 16, _showSubtitle ? 260 : 16),
-                      child: Column(
-                        children: [
-                          _buildQuestionCard(q),
-                          const SizedBox(height: 16),
-                          ...q.options.asMap().entries.map((entry) {
-                            final i = entry.key;
-                            final opt = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _buildOption(
-                                  i, opt, selectedIdx, q.options),
-                            );
-                          }),
-                        ],
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            _buildQuestionCard(q),
+                            const SizedBox(height: 16),
+                            ...q.options.asMap().entries.map((entry) {
+                              final i = entry.key;
+                              final opt = entry.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _buildOption(
+                                    i, opt, selectedIdx, q.options),
+                              );
+                            }),
+                          ],
+                        ),
                       ),
                     ),
                     // Subtitle sheet
                     if (_showSubtitle)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.45,
+                        ),
                         child: _buildSubtitleSheet(q),
                       ),
                   ],
@@ -551,57 +560,59 @@ class _AnswerDetailPageState extends ConsumerState<AnswerDetailPage> {
               ],
             ),
             // Content
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: q.options.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final opt = entry.value;
-                  final letter = String.fromCharCode(65 + i);
-                  final isCorrect = opt.isCorrect;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isCorrect
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '($letter)',
-                            style: GoogleFonts.lexend(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFFF59E0B),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              opt.content,
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: q.options.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final opt = entry.value;
+                    final letter = String.fromCharCode(65 + i);
+                    final isCorrect = opt.isCorrect;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isCorrect
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '($letter)',
                               style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: isCorrect
-                                    ? FontWeight.w600
-                                    : FontWeight.w300,
-                                color: isCorrect
-                                    ? Colors.white
-                                    : Colors.white
-                                        .withValues(alpha: 0.6),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFFF59E0B),
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                opt.content,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: isCorrect
+                                      ? FontWeight.w600
+                                      : FontWeight.w300,
+                                  color: isCorrect
+                                      ? Colors.white
+                                      : Colors.white
+                                          .withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
           ],

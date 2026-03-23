@@ -39,6 +39,7 @@ class AppColors {
   // Status colors
   static const Color red500 = Color(0xFFEF4444);
   static const Color orange500 = Color(0xFFF97316);
+  static const Color orange50 = Color(0xFFFFF7ED);
   static const Color amber100 = Color(0xFFFEF3C7);
   static const Color amber600 = Color(0xFFD97706);
   static const Color green100 = Color(0xFFDCFCE7);
@@ -46,6 +47,8 @@ class AppColors {
   static const Color blue500 = Color(0xFF3B82F6);
   static const Color indigo100 = Color(0xFFE0E7FF);
   static const Color indigo600 = Color(0xFF4F46E5);
+  static const Color purple50 = Color(0xFFFAF5FF);
+  static const Color purple500 = Color(0xFF9333EA);
   static const Color red100 = Color(0xFFFEE2E2);
   static const Color red600 = Color(0xFFDC2626);
   static const Color yellow500 = Color(0xFFEAB308);

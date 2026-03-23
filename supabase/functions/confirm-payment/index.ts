@@ -185,15 +185,15 @@ Deno.serve(async (req) => {
     }
 
     // Read current profile expiry to stack duration
-    const { data: profile } = await adminClient
+    const { data: profileExpiry } = await adminClient
       .from('profiles')
       .select('premium_expires_at')
       .eq('id', resolvedUserId)
       .maybeSingle();
 
     const now = new Date();
-    const currentExpiresAt = profile?.premium_expires_at
-      ? new Date(profile.premium_expires_at)
+    const currentExpiresAt = profileExpiry?.premium_expires_at
+      ? new Date(profileExpiry.premium_expires_at)
       : null;
     const hasFutureExpiry = currentExpiresAt != null && currentExpiresAt.getTime() > now.getTime();
     const entitlementBase = hasFutureExpiry ? currentExpiresAt : now;
@@ -232,14 +232,14 @@ Deno.serve(async (req) => {
       return json({ error: `Update profile failed: ${updateProfileError.message}` }, 500);
     }
 
-    const { data: profile } = await adminClient
+    const { data: profileName } = await adminClient
       .from('profiles')
       .select('full_name')
       .eq('id', order.user_id)
       .maybeSingle();
 
     const amountLabel = formatVnd(Number(order.amount ?? 0));
-    const userName = String(profile?.full_name ?? `User ${order.user_id.slice(0, 8)}`);
+    const userName = String(profileName?.full_name ?? `User ${order.user_id.slice(0, 8)}`);
 
     await Promise.all([
       notifyUser(adminClient, order.user_id, {

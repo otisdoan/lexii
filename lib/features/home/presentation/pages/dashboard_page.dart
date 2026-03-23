@@ -22,11 +22,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onNavTap(int index) {
     if (index == 1) {
-      context.go('/exam/mock-test');
+      context.go('/theory');
       return;
     }
     if (index == 2) {
-      context.go('/theory');
+      context.go('/exam/mock-test');
       return;
     }
     if (index == 3) {
@@ -57,19 +57,22 @@ class _DashboardPageState extends State<DashboardPage> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  children: const [
-                    PromoBanner(),
-                    SizedBox(height: 24),
-                    PracticeGrid(),
-                    SizedBox(height: 24),
-                    ExamGrid(),
-                    SizedBox(height: 24),
-                    NewExamBanner(),
-                    SizedBox(height: 24),
-                    HistorySection(),
-                    SizedBox(height: 24),
-                    NotebookSection(),
-                    SizedBox(height: 100),
+                  children: [
+                    PromoBanner(
+                      ctaLabel: 'Nâng cấp ngay',
+                      onCtaTap: () => context.go('/upgrade'),
+                    ),
+                    const SizedBox(height: 24),
+                    const PracticeGrid(),
+                    const SizedBox(height: 24),
+                    const ExamGrid(),
+                    const SizedBox(height: 24),
+                    const NewExamBanner(),
+                    const SizedBox(height: 24),
+                    const HistorySection(),
+                    const SizedBox(height: 24),
+                    const NotebookSection(),
+                    const SizedBox(height: 100),
                   ],
                 ),
               ),
@@ -84,4 +87,3 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 }
-

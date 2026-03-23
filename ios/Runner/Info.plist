@@ -24,6 +24,11 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+			<string>fetch</string>
+		</array>
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>
@@ -59,9 +64,11 @@
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>Ung dung can su dung microphone de ghi am phan luyen noi TOEIC.</string>
+		<string>Ứng dụng cần sử dụng microphone để ghi âm phần luyện nói TOEIC.</string>
+		<key>NSUserNotificationUsageDescription</key>
+		<string>Ứng dụng sử dụng thông báo để nhắc bạn học TOEIC hằng ngày.</string>
 		<key>NSSpeechRecognitionUsageDescription</key>
-		<string>Ung dung can nhan dien giong noi de tao transcript va phan tich bai noi.</string>
+		<string>Ứng dụng cần nhận diện giọng nói để tạo transcript và phân tích bài nói.</string>
 		<key>UIStatusBarHidden</key>
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>

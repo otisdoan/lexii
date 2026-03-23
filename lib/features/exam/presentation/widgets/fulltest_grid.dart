@@ -11,11 +11,15 @@ const int _kMaxGridItems = 6;
 const int _kFreeUnlockedExamCount = 3;
 
 class FulltestGrid extends ConsumerWidget {
-  const FulltestGrid({super.key});
+  final List<TestModel>? testsOverride;
+
+  const FulltestGrid({super.key, this.testsOverride});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fullTestsAsync = ref.watch(fullTestsProvider);
+    final fullTestsAsync = testsOverride == null
+        ? ref.watch(fullTestsProvider)
+        : AsyncValue.data(testsOverride!);
     final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Padding(
@@ -27,7 +31,7 @@ class FulltestGrid extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Fulltest',
+                'Full Test',
                 style: GoogleFonts.lexend(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -60,7 +64,7 @@ class FulltestGrid extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 0),
           // Content from database
           fullTestsAsync.when(
             loading: () => const SizedBox(
@@ -454,7 +458,7 @@ class _TestCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${test.duration} min • ${test.totalQuestions} questions',
+                      '${test.duration} phút • ${test.totalQuestions} câu',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lexend(
                         fontSize: 12,
@@ -471,7 +475,7 @@ class _TestCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          'Start',
+                          'Bắt đầu',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.lexend(
                             fontSize: 12,

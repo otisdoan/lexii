@@ -32,11 +32,11 @@ class ExamGrid extends StatelessWidget {
           childAspectRatio: 0.9,
           children: [
             _ExamCard(
-              icon: Icons.laptop_chromebook,
-              title: 'Thi thử Online',
-              bgColor: AppColors.indigo100,
-              iconColor: AppColors.indigo600,
-              onTap: () => context.push('/exam/mock-test'),
+              icon: Icons.edit_note,
+              title: 'Ngữ pháp',
+              bgColor: AppColors.orange50,
+              iconColor: AppColors.orange500,
+              onTap: () => context.push('/theory/grammar'),
             ),
             _ExamCard(
               icon: Icons.quiz,
@@ -50,16 +50,14 @@ class ExamGrid extends StatelessWidget {
               title: 'Bao đỗ',
               bgColor: AppColors.red100,
               iconColor: AppColors.red600,
-              badge: 'HOT',
               onTap: () {},
             ),
             _ExamCard(
-              icon: Icons.import_contacts,
-              title: 'Lý thuyết',
-              bgColor: AppColors.green100,
-              iconColor: AppColors.green600,
-              badge: 'FREE',
-              onTap: () => context.push('/theory'),
+              icon: Icons.book,
+              title: 'Từ vựng',
+              bgColor: AppColors.teal50,
+              iconColor: AppColors.primary,
+              onTap: () => context.push('/theory/vocabulary?tab=learn'),
             ),
             _ExamCard(
               icon: Icons.upgrade,
@@ -87,7 +85,6 @@ class _ExamCard extends StatelessWidget {
   final String title;
   final Color bgColor;
   final Color iconColor;
-  final String? badge;
   final VoidCallback onTap;
 
   const _ExamCard({
@@ -96,7 +93,6 @@ class _ExamCard extends StatelessWidget {
     required this.bgColor,
     required this.iconColor,
     required this.onTap,
-    this.badge,
   });
 
   @override
@@ -122,33 +118,6 @@ class _ExamCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Badge
-              if (badge != null)
-                Positioned(
-                  top: -4,
-                  right: -4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(8),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      badge!,
-                      style: GoogleFonts.lexend(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
               // Content
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,

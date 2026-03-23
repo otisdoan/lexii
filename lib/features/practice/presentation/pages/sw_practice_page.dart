@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:lexii/core/subscription/subscription_providers.dart';
 import 'package:lexii/core/theme/app_colors.dart';
 import 'package:lexii/features/practice/data/models/speaking_question_model.dart';
 import 'package:lexii/features/practice/data/models/sw_writing_question_model.dart';
@@ -17,69 +18,106 @@ class SpeakingPracticePage extends ConsumerStatefulWidget {
   const SpeakingPracticePage({super.key});
 
   @override
-  ConsumerState<SpeakingPracticePage> createState() => _SpeakingPracticePageState();
+  ConsumerState<SpeakingPracticePage> createState() =>
+      _SpeakingPracticePageState();
 }
 
 class _SpeakingPracticePageState extends ConsumerState<SpeakingPracticePage> {
   @override
   Widget build(BuildContext context) {
+    final isPremiumAsync = ref.watch(isPremiumProvider);
+    final isPremium = isPremiumAsync.valueOrNull ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: Column(
         children: [
           _SwHeader(
-            title: 'Luyện nói',
-            subtitle: 'Speaking Practice',
+            title: 'Speaking',
+            subtitle: 'Luyện tập từng phần',
             icon: Icons.mic,
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SkillOverviewCard(
-                    icon: Icons.auto_awesome,
+                  _AiBadgeCard(
                     title: 'Chế độ AI tự động',
                     subtitle:
                         'Mỗi bài nói sẽ được chấm bằng AI theo tiêu chí TOEIC. Bạn chỉ cần chọn dạng bài và bắt đầu luyện.',
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 24),
                   Text(
-                    'Các dạng luyện tập',
+                    'Danh sách Part',
                     style: GoogleFonts.lexend(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textSlate800,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ..._speakingTypes.map(
-                    (item) => Padding(
+                  ..._speakingTypes.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final isLocked = !isPremium && index > 0;
+                    return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _PracticeTypeCard(
+                      child: _SwPartCard(
                         title: item.title,
                         subtitle: item.subtitle,
                         icon: item.icon,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => SpeakingAttemptPage(
-                                taskType: item.type,
-                                taskTitle: item.title,
-                                mode: GradingMode.ai,
-                              ),
-                            ),
-                          );
-                        },
+                        bgColor: _speakingBgColor(item.type),
+                        fgColor: _speakingFgColor(item.type),
+                        isLocked: isLocked,
+                        onTap: () => _showSpeakingModal(
+                          context,
+                          item.type,
+                          item.title,
+                          item.subtitle,
+                        ),
+                        onLockedTap: () =>
+                            Navigator.of(context).pushNamed('/upgrade'),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSpeakingModal(
+    BuildContext context,
+    String taskType,
+    String title,
+    String subtitle,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SwStartModal(
+        partLabel: 'Speaking',
+        title: title,
+        subtitle: subtitle,
+        color: const Color(0xFFF97316),
+        onStart: () {
+          Navigator.pop(ctx);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SpeakingAttemptPage(
+                taskType: taskType,
+                taskTitle: title,
+                mode: GradingMode.ai,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -89,69 +127,109 @@ class WritingPracticePage extends ConsumerStatefulWidget {
   const WritingPracticePage({super.key});
 
   @override
-  ConsumerState<WritingPracticePage> createState() => _WritingPracticePageState();
+  ConsumerState<WritingPracticePage> createState() =>
+      _WritingPracticePageState();
 }
 
 class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
   @override
   Widget build(BuildContext context) {
+    final isPremiumAsync = ref.watch(isPremiumProvider);
+    final isPremium = isPremiumAsync.valueOrNull ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: Column(
         children: [
           _SwHeader(
-            title: 'Luyện viết',
-            subtitle: 'Writing Practice',
+            title: 'Writing',
+            subtitle: 'Luyện tập từng phần',
             icon: Icons.edit_note,
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SkillOverviewCard(
-                    icon: Icons.auto_awesome,
+                  // AI badge
+                  _AiBadgeCard(
                     title: 'Chế độ AI tự động',
                     subtitle:
                         'Bài viết sẽ được AI chấm chi tiết ngay sau khi nộp, bao gồm góp ý và hướng cải thiện theo chuẩn TOEIC.',
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 24),
+
                   Text(
-                    'Các dạng luyện tập',
+                    'Danh sách Part',
                     style: GoogleFonts.lexend(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textSlate800,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ..._writingTypes.map(
-                    (item) => Padding(
+
+                  ..._writingTypes.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final isLocked = !isPremium && index > 0;
+                    return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _PracticeTypeCard(
+                      child: _SwPartCard(
                         title: item.title,
                         subtitle: item.subtitle,
                         icon: item.icon,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => WritingAttemptPage(
-                                taskType: item.type,
-                                taskTitle: item.title,
-                                mode: GradingMode.ai,
-                              ),
-                            ),
-                          );
-                        },
+                        bgColor: _writingBgColor(item.type),
+                        fgColor: _writingFgColor(item.type),
+                        isLocked: isLocked,
+                        onTap: () => _showWritingModal(
+                          context,
+                          item.type,
+                          item.title,
+                          item.subtitle,
+                        ),
+                        onLockedTap: () =>
+                            Navigator.of(context).pushNamed('/upgrade'),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showWritingModal(
+    BuildContext context,
+    String taskType,
+    String title,
+    String subtitle,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SwStartModal(
+        partLabel: 'Writing',
+        title: title,
+        subtitle: subtitle,
+        color: const Color(0xFF9333EA),
+        onStart: () {
+          Navigator.pop(ctx);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => WritingAttemptPage(
+                taskType: taskType,
+                taskTitle: title,
+                mode: GradingMode.ai,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -170,7 +248,8 @@ class SpeakingAttemptPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SpeakingAttemptPage> createState() => _SpeakingAttemptPageState();
+  ConsumerState<SpeakingAttemptPage> createState() =>
+      _SpeakingAttemptPageState();
 }
 
 class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
@@ -239,22 +318,27 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
       if (!hasPermission || !mounted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Khong co quyen micro. Vui long cap quyen de thu am.')),
+            const SnackBar(
+              content: Text(
+                'Không có quyền micro. Vui lòng cấp quyền để thu âm.',
+              ),
+            ),
           );
         }
         return;
       }
 
-      final filePath = '${Directory.systemTemp.path}/lexii-speaking-${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final filePath =
+          '${Directory.systemTemp.path}/lexii-speaking-${DateTime.now().millisecondsSinceEpoch}.m4a';
       await _audioRecorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: filePath,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Khong the bat dau thu am: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Không thể bắt đầu thu âm: $e')));
       return;
     }
 
@@ -289,7 +373,9 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
 
     if (path == null || path.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khong tao duoc file thu am. Thu lai mot lan nua.')),
+        const SnackBar(
+          content: Text('Không tạo được file thu âm. Thử lại một lần nữa.'),
+        ),
       );
     }
   }
@@ -323,12 +409,11 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
     String? answerId;
 
     try {
-      if (finalTranscript.isEmpty && (_recordedAudioPath?.isNotEmpty ?? false)) {
+      if (finalTranscript.isEmpty &&
+          (_recordedAudioPath?.isNotEmpty ?? false)) {
         try {
           finalTranscript = await repo
-              .transcribeSpeakingAudioWithGemini(
-                audioPath: _recordedAudioPath!,
-              )
+              .transcribeSpeakingAudioWithGemini(audioPath: _recordedAudioPath!)
               .timeout(const Duration(seconds: 20));
         } catch (_) {
           finalTranscript = '';
@@ -409,7 +494,9 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
 
@@ -447,7 +534,9 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                       children: [
                         Icon(
                           _recording ? Icons.mic : Icons.timer,
-                          color: _recording ? AppColors.red600 : AppColors.primary,
+                          color: _recording
+                              ? AppColors.red600
+                              : AppColors.primary,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -455,8 +544,8 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                             _recording
                                 ? 'Đang ghi âm: ${_recordSeconds}s'
                                 : _prepTimer != null
-                                    ? 'Chuẩn bị ghi âm: $_prepCountdown'
-                                    : 'Nhấn Bắt đầu để ghi âm câu trả lời',
+                                ? 'Chuẩn bị ghi âm: $_prepCountdown'
+                                : 'Nhấn Bắt đầu để ghi âm câu trả lời',
                             style: GoogleFonts.lexend(
                               fontSize: 13,
                               color: AppColors.textSlate600,
@@ -471,7 +560,9 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: (_recording || _prepTimer != null) ? null : _startPrep,
+                          onPressed: (_recording || _prepTimer != null)
+                              ? null
+                              : _startPrep,
                           icon: const Icon(Icons.play_arrow),
                           label: const Text('Bắt đầu'),
                         ),
@@ -485,10 +576,14 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                                 }
                               : null,
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: _recording ? AppColors.red600 : null,
+                            backgroundColor: _recording
+                                ? AppColors.red600
+                                : null,
                             foregroundColor: _recording ? Colors.white : null,
                             side: BorderSide(
-                              color: _recording ? AppColors.red600 : AppColors.borderSlate200,
+                              color: _recording
+                                  ? AppColors.red600
+                                  : AppColors.borderSlate200,
                             ),
                           ),
                           icon: const Icon(Icons.stop),
@@ -513,7 +608,11 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                         ),
                         TextButton.icon(
                           onPressed: _playRecordedAudio,
-                          icon: Icon(_playingAudio ? Icons.pause_circle : Icons.play_circle),
+                          icon: Icon(
+                            _playingAudio
+                                ? Icons.pause_circle
+                                : Icons.play_circle,
+                          ),
                           label: Text(_playingAudio ? 'Tạm dừng' : 'Nghe lại'),
                         ),
                       ],
@@ -532,11 +631,17 @@ class _SpeakingAttemptPageState extends ConsumerState<SpeakingAttemptPage> {
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : Text(
                               'Nộp bài',
-                              style: GoogleFonts.lexend(fontWeight: FontWeight.w700, color: Colors.white),
+                              style: GoogleFonts.lexend(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
@@ -668,7 +773,9 @@ class _WritingAttemptPageState extends ConsumerState<WritingAttemptPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
 
@@ -705,10 +812,15 @@ class _WritingAttemptPageState extends ConsumerState<WritingAttemptPage> {
                     minLines: 8,
                     maxLines: 14,
                     onChanged: (_) => setState(() {}),
-                    style: GoogleFonts.lexend(fontSize: 14, color: AppColors.textSlate800),
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      color: AppColors.textSlate800,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Nhập câu trả lời của bạn...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -716,7 +828,10 @@ class _WritingAttemptPageState extends ConsumerState<WritingAttemptPage> {
                     alignment: Alignment.centerRight,
                     child: Text(
                       'Số từ: $wordCount',
-                      style: GoogleFonts.lexend(fontSize: 12, color: AppColors.textSlate500),
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        color: AppColors.textSlate500,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -732,11 +847,17 @@ class _WritingAttemptPageState extends ConsumerState<WritingAttemptPage> {
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : Text(
                               'Nộp bài',
-                              style: GoogleFonts.lexend(fontWeight: FontWeight.w700, color: Colors.white),
+                              style: GoogleFonts.lexend(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
@@ -766,124 +887,440 @@ class SwResultPage extends StatelessWidget {
     required this.userAnswer,
   });
 
+  String _taskLabel(String key) {
+    final normalized = key.trim().toLowerCase();
+    switch (normalized) {
+      case 'pronunciation':
+        return 'Phát âm';
+      case 'fluency':
+        return 'Trôi chảy';
+      case 'grammar':
+        return 'Ngữ pháp';
+      case 'vocabulary':
+        return 'Từ vựng';
+      case 'coherence':
+      case 'content':
+        return 'Nội dung';
+      default:
+        return key;
+    }
+  }
+
+  Color _scoreColor(int score) {
+    if (score >= 80) return AppColors.green600;
+    if (score >= 60) return AppColors.yellow500;
+    return AppColors.red500;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAi = mode == GradingMode.ai;
+    final overall = ai?.overall ?? 0;
+    final answeredCount = userAnswer.trim().isEmpty ? 0 : 1;
+
+    final scoreEntries = ai != null
+        ? (ai!.taskScores.isNotEmpty
+              ? ai!.taskScores.entries
+                    .map((e) => MapEntry(_taskLabel(e.key), e.value))
+                    .toList()
+              : isSpeaking
+              ? <MapEntry<String, int>>[
+                  MapEntry('Phát âm', ai!.pronunciation),
+                  MapEntry('Trôi chảy', ai!.fluency),
+                  MapEntry('Ngữ pháp', ai!.grammar),
+                  MapEntry('Từ vựng', ai!.vocabulary),
+                  MapEntry('Nội dung', ai!.coherence),
+                ]
+              : <MapEntry<String, int>>[
+                  MapEntry('Nội dung', ai!.coherence),
+                  MapEntry('Ngữ pháp', ai!.grammar),
+                  MapEntry('Từ vựng', ai!.vocabulary),
+                ])
+        : const <MapEntry<String, int>>[];
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: Column(
-        children: [
-          _AttemptHeader(title: 'Kết quả: $taskTitle'),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isAi ? AppColors.indigo100 : AppColors.teal100,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      isAi
-                          ? 'Bài làm đã được chấm bằng AI. Bạn có thể xem chi tiết điểm và gợi ý bên dưới.'
-                          : 'Bài làm đã được lưu thành công (chế độ chấm thường). Bạn có thể xem lại trong lịch sử luyện tập.',
-                      style: GoogleFonts.lexend(fontSize: 13, color: AppColors.textSlate600),
-                    ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, Color(0xFF14B8A6)],
                   ),
-                  const SizedBox(height: 14),
-                  if (isAi && ai != null) ...[
-                    _ScoreCard(title: 'Overall', score: ai!.overall),
-                    const SizedBox(height: 10),
-                    if (ai!.taskScores.isNotEmpty) ...[
-                      ...ai!.taskScores.entries.map(
-                        (entry) => _ScoreRow(label: entry.key, value: entry.value),
-                      ),
-                    ] else if (isSpeaking) ...[
-                      _ScoreRow(label: 'Pronunciation', value: ai!.pronunciation),
-                      _ScoreRow(label: 'Fluency', value: ai!.fluency),
-                      _ScoreRow(label: 'Grammar', value: ai!.grammar),
-                      _ScoreRow(label: 'Vocabulary', value: ai!.vocabulary),
-                      _ScoreRow(label: 'Coherence', value: ai!.coherence),
-                    ] else ...[
-                      _ScoreRow(label: 'Coherence', value: ai!.coherence),
-                      _ScoreRow(label: 'Grammar', value: ai!.grammar),
-                      _ScoreRow(label: 'Vocabulary', value: ai!.vocabulary),
-                    ],
-                    const SizedBox(height: 12),
-                    _Block(
-                      title: 'Phân tích lỗi & góp ý',
-                      content: ai!.feedback,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                    if (ai!.errors.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _Block(
-                        title: 'Lỗi cần sửa',
-                        content: ai!.errors.map((e) => '- $e').join('\n'),
-                      ),
-                    ],
-                    if (isSpeaking && ai!.missingDetails.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _Block(
-                        title: 'Ý còn thiếu',
-                        content: ai!.missingDetails.map((e) => '- $e').join('\n'),
-                      ),
-                    ],
-                    if (isSpeaking && ai!.wrongInformation.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _Block(
-                        title: 'Thông tin chưa chính xác',
-                        content: ai!.wrongInformation.map((e) => '- $e').join('\n'),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    if (ai!.aiSuggestedAnswer.trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _Block(
-                        title: 'Đáp án mẫu AI',
-                        content: ai!.aiSuggestedAnswer,
-                      ),
-                    ],
-                    if (ai!.vocabularyHighlights.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _Block(
-                        title: 'Từ vựng quan trọng',
-                        content: ai!.vocabularyHighlights
-                            .map((e) => '- $e')
-                            .join('\n'),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
                   ],
-                  if (!isSpeaking) ...[
-                    _Block(
-                      title: 'Bài viết đã lưu',
-                      content: userAnswer.trim().isEmpty
-                          ? 'Không có nội dung.'
-                          : userAnswer,
-                    ),
-                    const SizedBox(height: 18),
-                  ] else
-                    const SizedBox(height: 6),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        isSpeaking ? 'Về trang luyện nói' : 'Về trang luyện tập',
-                        style: GoogleFonts.lexend(color: Colors.white, fontWeight: FontWeight.w700),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            taskTitle,
+                            style: GoogleFonts.lexend(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            isAi
+                                ? 'AI Chấm · $answeredCount/1 bài đã nộp'
+                                : 'Chế độ thường · Bài làm đã được lưu',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.88),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    if (isAi && overall > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              '$overall',
+                              style: GoogleFonts.lexend(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              '/100',
+                              style: GoogleFonts.lexend(
+                                fontSize: 11,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.borderSlate100),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.auto_awesome,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Kết quả chấm AI',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textSlate800,
+                                ),
+                              ),
+                              Text(
+                                isAi
+                                    ? '1 bài đã nộp · đã chấm chi tiết'
+                                    : 'Bài làm đã được lưu thành công',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 12,
+                                  color: AppColors.textSlate500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isAi && overall > 0) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Text(
+                            'Điểm tổng',
+                            style: GoogleFonts.lexend(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '$overall/100',
+                            style: GoogleFonts.lexend(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: overall / 100,
+                          minHeight: 8,
+                          backgroundColor: AppColors.slate100,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _scoreColor(overall),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              if (isAi && ai != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.borderSlate100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Điểm chi tiết',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSlate800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...scoreEntries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 96,
+                                child: Text(
+                                  entry.key,
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 12,
+                                    color: AppColors.textSlate500,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: LinearProgressIndicator(
+                                    value: entry.value / 100,
+                                    minHeight: 6,
+                                    backgroundColor: AppColors.slate100,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      _scoreColor(entry.value),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 28,
+                                child: Text(
+                                  '${entry.value}',
+                                  textAlign: TextAlign.right,
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.slate700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (ai!.errors.isNotEmpty)
+                  _ResultPanel(
+                    title: 'Lỗi cần sửa',
+                    content: ai!.errors.map((e) => '- $e').join('\n'),
+                    bg: const Color(0xFFFEF2F2),
+                    border: const Color(0xFFFECACA),
+                  ),
+                if (ai!.errors.isNotEmpty) const SizedBox(height: 10),
+                _ResultPanel(
+                  title: 'Phân tích & góp ý',
+                  content: ai!.feedback,
+                  bg: Colors.white,
+                  border: AppColors.borderSlate200,
+                ),
+                if (isSpeaking && ai!.missingDetails.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _ResultPanel(
+                    title: 'Ý còn thiếu',
+                    content: ai!.missingDetails.map((e) => '- $e').join('\n'),
+                    bg: const Color(0xFFFFFBEB),
+                    border: const Color(0xFFFDE68A),
                   ),
                 ],
+                if (isSpeaking && ai!.wrongInformation.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _ResultPanel(
+                    title: 'Thông tin chưa chính xác',
+                    content: ai!.wrongInformation.map((e) => '- $e').join('\n'),
+                    bg: const Color(0xFFFFF7ED),
+                    border: const Color(0xFFFED7AA),
+                  ),
+                ],
+                if (ai!.vocabularyHighlights.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _ResultPanel(
+                    title: 'Từ vựng nên dùng',
+                    content: ai!.vocabularyHighlights
+                        .map((e) => '- $e')
+                        .join('\n'),
+                    bg: const Color(0xFFEFF6FF),
+                    border: const Color(0xFFBFDBFE),
+                  ),
+                ],
+                if (ai!.aiSuggestedAnswer.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _ResultPanel(
+                    title: 'Gợi ý của AI',
+                    content: ai!.aiSuggestedAnswer,
+                    bg: const Color(0xFFFFFBEB),
+                    border: const Color(0xFFFDE68A),
+                  ),
+                ],
+              ],
+
+              if (userAnswer.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _ResultPanel(
+                  title: isSpeaking ? 'Văn bản nhận diện' : 'Bài làm của bạn',
+                  content: userAnswer,
+                  bg: const Color(0xFFF8FAFC),
+                  border: AppColors.borderSlate200,
+                ),
+              ],
+
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    isSpeaking ? 'Về trang luyện nói' : 'Về trang luyện tập',
+                    style: GoogleFonts.lexend(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultPanel extends StatelessWidget {
+  final String title;
+  final String content;
+  final Color bg;
+  final Color border;
+
+  const _ResultPanel({
+    required this.title,
+    required this.content,
+    required this.bg,
+    required this.border,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.lexend(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSlate800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: GoogleFonts.lexend(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.slate700,
             ),
           ),
         ],
@@ -1002,84 +1439,6 @@ class _AttemptHeader extends StatelessWidget {
   }
 }
 
-class _SkillOverviewCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _SkillOverviewCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderSlate200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.teal50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppColors.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSlate800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.lexend(
-                    fontSize: 12,
-                    color: AppColors.textSlate500,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.indigo100,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              'AI',
-              style: GoogleFonts.lexend(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppColors.indigo600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ModeChip extends StatelessWidget {
   final GradingMode mode;
 
@@ -1106,61 +1465,342 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
-class _PracticeTypeCard extends StatelessWidget {
+class _AiBadgeCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _AiBadgeCard({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF7ED), Color(0xFFFFEDD5)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.auto_awesome,
+              color: Color(0xFFF97316),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSlate800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    color: AppColors.textSlate500,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwPartCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final Color bgColor;
+  final Color fgColor;
+  final bool isLocked;
   final VoidCallback onTap;
+  final VoidCallback? onLockedTap;
 
-  const _PracticeTypeCard({
+  const _SwPartCard({
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.bgColor,
+    required this.fgColor,
+    required this.isLocked,
     required this.onTap,
+    this.onLockedTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.borderSlate200),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: isLocked ? (onLockedTap ?? onTap) : onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isLocked
+                  ? const Color(0xFFFDE68A)
+                  : AppColors.borderSlate100,
+            ),
+            color: isLocked ? const Color(0xFFFFFBEB) : Colors.white,
+            boxShadow: isLocked
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isLocked ? const Color(0xFFFEF3C7) : bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: isLocked ? const Color(0xFFD97706) : fgColor,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isLocked
+                            ? const Color(0xFF92400E)
+                            : AppColors.textSlate800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        color: AppColors.textSlate500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (isLocked)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.lock,
+                        size: 12,
+                        color: Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Premium',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.textSlate400,
+                ),
+            ],
+          ),
         ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
+      ),
+    );
+  }
+}
+
+class _SwStartModal extends StatelessWidget {
+  final String partLabel;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onStart;
+
+  const _SwStartModal({
+    required this.partLabel,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: 20 + MediaQuery.of(context).padding.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color, color.withValues(alpha: 0.8)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        partLabel,
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: GoogleFonts.lexend(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Summary
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.teal50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: AppColors.primary),
+                  child: const Icon(
+                    Icons.help_outline,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title,
+                        'Sẵn sàng luyện tập',
                         style: GoogleFonts.lexend(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.textSlate800,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
-                        subtitle,
+                        'Bạn sẽ luyện tập $title với chế độ AI chấm.',
                         style: GoogleFonts.lexend(
                           fontSize: 12,
                           color: AppColors.textSlate500,
@@ -1169,13 +1809,133 @@ class _PracticeTypeCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppColors.textSlate400),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 20),
+
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: AppColors.borderSlate200),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Hủy bỏ',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSlate600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: onStart,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Bắt đầu ngay',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+}
+
+// ── Color helpers for Speaking / Writing parts ─────────────
+Color _speakingBgColor(String type) {
+  switch (type) {
+    case 'read_aloud':
+      return const Color(0xFFDBEAFE);
+    case 'describe_image':
+      return const Color(0xFFFAF5FF);
+    case 'respond_questions':
+      return const Color(0xFFDCFCE7);
+    case 'express_opinion':
+      return const Color(0xFFFEF3C7);
+    case 'propose_solution':
+      return const Color(0xFFFCE7F3);
+    default:
+      return const Color(0xFFF0FDFA);
+  }
+}
+
+Color _speakingFgColor(String type) {
+  switch (type) {
+    case 'read_aloud':
+      return const Color(0xFF2563EB);
+    case 'describe_image':
+      return const Color(0xFF9333EA);
+    case 'respond_questions':
+      return const Color(0xFF16A34A);
+    case 'express_opinion':
+      return const Color(0xFFD97706);
+    case 'propose_solution':
+      return const Color(0xFFDB2777);
+    default:
+      return AppColors.primary;
+  }
+}
+
+Color _writingBgColor(String type) {
+  switch (type) {
+    case 'sentence':
+      return const Color(0xFFDBEAFE);
+    case 'email':
+      return const Color(0xFFFAF5FF);
+    case 'essay':
+      return const Color(0xFFFEF3C7);
+    default:
+      return const Color(0xFFF0FDFA);
+  }
+}
+
+Color _writingFgColor(String type) {
+  switch (type) {
+    case 'sentence':
+      return const Color(0xFF2563EB);
+    case 'email':
+      return const Color(0xFF9333EA);
+    case 'essay':
+      return const Color(0xFFD97706);
+    default:
+      return AppColors.primary;
   }
 }
 
@@ -1231,113 +1991,26 @@ class _PromptCard extends StatelessWidget {
               children: keywords
                   .map(
                     (k) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.teal50,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         k,
-                        style: GoogleFonts.lexend(fontSize: 11, color: AppColors.primaryDark),
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          color: AppColors.primaryDark,
+                        ),
                       ),
                     ),
                   )
                   .toList(),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ScoreCard extends StatelessWidget {
-  final String title;
-  final int score;
-
-  const _ScoreCard({required this.title, required this.score});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.lexend(fontWeight: FontWeight.w700, color: AppColors.textSlate600),
-          ),
-          const Spacer(),
-          Text(
-            '$score/100',
-            style: GoogleFonts.lexend(fontWeight: FontWeight.w800, color: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScoreRow extends StatelessWidget {
-  final String label;
-  final int value;
-
-  const _ScoreRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.lexend(fontSize: 13, color: AppColors.textSlate600),
-            ),
-          ),
-          Text(
-            '$value',
-            style: GoogleFonts.lexend(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSlate800),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Block extends StatelessWidget {
-  final String title;
-  final String content;
-
-  const _Block({required this.title, required this.content});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.lexend(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textSlate800),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            content,
-            style: GoogleFonts.lexend(fontSize: 13, color: AppColors.textSlate600, height: 1.5),
-          ),
         ],
       ),
     );

@@ -10,11 +10,15 @@ import 'package:lexii/features/exam/presentation/providers/test_providers.dart';
 const int _kFreeUnlockedExamCount = 3;
 
 class MinitestGrid extends ConsumerWidget {
-  const MinitestGrid({super.key});
+  final List<TestModel>? testsOverride;
+
+  const MinitestGrid({super.key, this.testsOverride});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final miniTestsAsync = ref.watch(miniTestsProvider);
+    final miniTestsAsync = testsOverride == null
+        ? ref.watch(miniTestsProvider)
+        : AsyncValue.data(testsOverride!);
     final isPremiumAsync = ref.watch(isPremiumProvider);
 
     return Padding(
@@ -23,25 +27,14 @@ class MinitestGrid extends ConsumerWidget {
         children: [
           // Section header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
-                'Minitest',
+                'Mini Test',
                 style: GoogleFonts.lexend(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSlate900,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {},
-                child: Text(
-                  'Xem thêm',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
                 ),
               ),
             ],
@@ -212,7 +205,7 @@ class _MiniTestCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${test.duration} min • ${test.totalQuestions} questions',
+                      '${test.duration} phút • ${test.totalQuestions} câu',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lexend(
                         fontSize: 12,
@@ -230,7 +223,7 @@ class _MiniTestCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          'Start',
+                          'Bắt đầu',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.lexend(
                             fontSize: 12,

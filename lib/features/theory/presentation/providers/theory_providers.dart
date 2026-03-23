@@ -61,3 +61,15 @@ final lessonNumbersProvider = FutureProvider.autoDispose<List<int>>(
     return repo.getLessonNumbers();
   },
 );
+
+/// Total vocabulary count for dashboard display.
+final vocabularyCountProvider = FutureProvider<int>((ref) async {
+  final repo = ref.watch(theoryRepositoryProvider);
+  return repo.getVocabularyCount();
+});
+
+/// Total grammar count for dashboard display.
+final grammarCountProvider = FutureProvider<int>((ref) async {
+  final repo = ref.watch(theoryRepositoryProvider);
+  return repo.getGrammarCount();
+});

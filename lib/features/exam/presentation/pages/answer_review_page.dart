@@ -217,6 +217,83 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
       return const SizedBox.shrink();
     }
 
+    if (isPracticeScoped) {
+      final questionItems = <_QuestionWithIndex>[];
+      for (int i = 0; i < allQuestions.length; i++) {
+        questionItems.add(_QuestionWithIndex(allQuestions[i], i));
+      }
+
+      final filtered = questionItems.where((qi) {
+        final selectedIdx = widget.userAnswers[qi.globalIndex];
+        if (_filter == 'correct') {
+          return selectedIdx != null &&
+              selectedIdx < qi.question.options.length &&
+              qi.question.options[selectedIdx].isCorrect;
+        } else if (_filter == 'wrong') {
+          if (selectedIdx == null) return true; // skipped = wrong
+          return selectedIdx >= qi.question.options.length ||
+              !qi.question.options[selectedIdx].isCorrect;
+        }
+        return true;
+      }).toList();
+
+      if (filtered.isEmpty && _filter != 'all') {
+        return const SizedBox.shrink();
+      }
+
+      return ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.testTitle,
+                        style: GoogleFonts.lexend(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...filtered.map((qi) =>
+                    _buildQuestionItem(context, qi, allQuestions)),
+                const SizedBox(height: 4),
+              ],
+            ),
+          )
+        ],
+      );
+    }
+
     // Determine which parts belong to this section
     final isListening = section == 'listening';
 
@@ -229,11 +306,9 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
 
     // Split by section (first 4 parts = listening, rest = reading)
     final allPartIds = partGroups.keys.toList();
-    final sectionPartIds = isPracticeScoped
-      ? allPartIds
-      : (isListening
+    final sectionPartIds = isListening
         ? allPartIds.take(4.clamp(0, allPartIds.length)).toList()
-        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList());
+        : allPartIds.skip(4.clamp(0, allPartIds.length)).toList();
 
     final partNames = isListening
         ? [
@@ -337,6 +412,8 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
         selectedIdx < q.options.length &&
         q.options[selectedIdx].isCorrect;
 
+    final isPracticeScoped = widget.partId != null || (widget.questionIds != null && widget.questionIds!.isNotEmpty);
+
     // Status
     IconData statusIcon;
     Color statusColor;
@@ -373,6 +450,8 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
             'testTitle': widget.testTitle,
             'questionIndex': qi.globalIndex,
             'userAnswers': widget.userAnswers,
+            'partId': widget.partId,
+            'questionIds': widget.questionIds,
           });
         },
         child: Padding(
@@ -399,7 +478,7 @@ class _AnswerReviewPageState extends ConsumerState<AnswerReviewPage>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Câu ${qi.question.orderIndex}',
+                  'Câu ${isPracticeScoped ? (qi.globalIndex + 1) : (qi.question.orderIndex > 0 ? qi.question.orderIndex : qi.globalIndex + 1)}',
                   style: GoogleFonts.lexend(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

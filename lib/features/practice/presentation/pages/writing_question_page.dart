@@ -26,6 +26,7 @@ class WritingQuestionPage extends ConsumerStatefulWidget {
 
 class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
   int _currentIndex = 0;
+
   /// promptId → user's typed answer
   final Map<String, String> _answers = {};
   final TextEditingController _controller = TextEditingController();
@@ -58,12 +59,14 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
     return FutureBuilder<List<WritingPromptModel>>(
       future: _loadedPrompts == null
           ? writingRepo
-              .getPromptsForPart(widget.partNumber,
-                  limit: widget.questionLimit)
-              .then((p) {
-              _loadedPrompts = p;
-              return p;
-            })
+                .getPromptsForPart(
+                  widget.partNumber,
+                  limit: widget.questionLimit,
+                )
+                .then((p) {
+                  _loadedPrompts = p;
+                  return p;
+                })
           : Future.value(_loadedPrompts),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
@@ -152,8 +155,11 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
                   borderRadius: BorderRadius.circular(9999),
                   child: const Padding(
                     padding: EdgeInsets.all(8),
-                    child: Icon(Icons.arrow_back,
-                        color: Colors.white, size: 24),
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
@@ -167,21 +173,32 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.report_problem_outlined,
-                  color: Colors.white.withValues(alpha: 0.8), size: 20),
+              Icon(
+                Icons.report_problem_outlined,
+                color: Colors.white.withValues(alpha: 0.8),
+                size: 20,
+              ),
               const SizedBox(width: 8),
-              Icon(Icons.settings_outlined,
-                  color: Colors.white.withValues(alpha: 0.8), size: 20),
+              Icon(
+                Icons.settings_outlined,
+                color: Colors.white.withValues(alpha: 0.8),
+                size: 20,
+              ),
               const SizedBox(width: 8),
-              Icon(Icons.favorite_border,
-                  color: Colors.white.withValues(alpha: 0.8), size: 20),
+              Icon(
+                Icons.favorite_border,
+                color: Colors.white.withValues(alpha: 0.8),
+                size: 20,
+              ),
               const Spacer(),
               TextButton(
                 onPressed: () {},
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -282,8 +299,11 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.image_outlined,
-                        size: 48, color: AppColors.textSlate300),
+                    const Icon(
+                      Icons.image_outlined,
+                      size: 48,
+                      color: AppColors.textSlate300,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       prompt.title ?? 'Hình ảnh',
@@ -370,15 +390,16 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
           decoration: BoxDecoration(
             color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline,
-                  color: AppColors.primary, size: 18),
+              const Icon(
+                Icons.info_outline,
+                color: AppColors.primary,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -480,8 +501,8 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
           onPressed: _submitting
               ? null
               : () => isLast
-                  ? _submit(prompts, current)
-                  : _goNext(prompts, current),
+                    ? _submit(prompts, current)
+                    : _goNext(prompts, current),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
@@ -516,8 +537,7 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
 
   // ── Navigation ────────────────────────────────────────────────
 
-  void _goNext(
-      List<WritingPromptModel> prompts, WritingPromptModel current) {
+  void _goNext(List<WritingPromptModel> prompts, WritingPromptModel current) {
     _saveCurrentAnswer(current);
     setState(() {
       _currentIndex++;
@@ -526,7 +546,9 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
   }
 
   Future<void> _submit(
-      List<WritingPromptModel> prompts, WritingPromptModel current) async {
+    List<WritingPromptModel> prompts,
+    WritingPromptModel current,
+  ) async {
     _saveCurrentAnswer(current);
     if (_submitting) return;
     setState(() => _submitting = true);
@@ -534,16 +556,20 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
     try {
       final repo = ref.read(writingRepositoryProvider);
       await repo.submitBatch(widget.partNumber, _answers);
+      ref.invalidate(writingPartsProvider);
     } catch (_) {
       // Non-fatal
     }
 
     if (!mounted) return;
-    context.pushReplacement('/practice/writing-result', extra: {
-      'partTitle': widget.partTitle,
-      'prompts': prompts,
-      'userAnswers': Map<String, String>.from(_answers),
-    });
+    context.pushReplacement(
+      '/practice/writing-result',
+      extra: {
+        'partTitle': widget.partTitle,
+        'prompts': prompts,
+        'userAnswers': Map<String, String>.from(_answers),
+      },
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────
@@ -557,8 +583,11 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.edit_off,
-                  size: 64, color: AppColors.textSlate300),
+              const Icon(
+                Icons.edit_off,
+                size: 64,
+                color: AppColors.textSlate300,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Chưa có đề bài',
@@ -588,23 +617,31 @@ class _WritingQuestionPageState extends ConsumerState<WritingQuestionPage> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Thoát luyện tập?',
-            style: GoogleFonts.lexend(fontWeight: FontWeight.w700)),
-        content: Text('Tiến trình của bạn sẽ không được lưu.',
-            style: GoogleFonts.lexend()),
+        title: Text(
+          'Thoát luyện tập?',
+          style: GoogleFonts.lexend(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Tiến trình của bạn sẽ không được lưu.',
+          style: GoogleFonts.lexend(),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Tiếp tục làm',
-                style: GoogleFonts.lexend(color: AppColors.primary)),
+            child: Text(
+              'Tiếp tục làm',
+              style: GoogleFonts.lexend(color: AppColors.primary),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.pop();
             },
-            child: Text('Thoát',
-                style: GoogleFonts.lexend(color: AppColors.red600)),
+            child: Text(
+              'Thoát',
+              style: GoogleFonts.lexend(color: AppColors.red600),
+            ),
           ),
         ],
       ),

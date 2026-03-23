@@ -57,13 +57,14 @@ Future<void> _normalizeExpiredSubscriptionState(
 
   if (role == 'premium' && expiresAtRaw != null && expiresAtRaw.isNotEmpty) {
     final expiresAt = DateTime.tryParse(expiresAtRaw)?.toUtc();
-    final isExpired = expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc());
+    final isExpired =
+        expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc());
     if (isExpired) {
       try {
-        await client.from('profiles').update({
-          'role': 'user',
-          'premium_expires_at': null,
-        }).eq('id', userId);
+        await client
+            .from('profiles')
+            .update({'role': 'user', 'premium_expires_at': null})
+            .eq('id', userId);
       } catch (_) {
         // Best-effort sync only; keep UI based on server-read state.
       }
@@ -71,7 +72,10 @@ Future<void> _normalizeExpiredSubscriptionState(
   }
 }
 
-Future<bool> _hasActivePremiumOrder(SupabaseClient client, String userId) async {
+Future<bool> _hasActivePremiumOrder(
+  SupabaseClient client,
+  String userId,
+) async {
   final orders = await client
       .from('subscription_orders')
       .select('is_lifetime,granted_until,status')
@@ -95,6 +99,49 @@ Future<bool> _hasActivePremiumOrder(SupabaseClient client, String userId) async 
   }
 
   return false;
+}
+
+Future<SubscriptionInfo> _subscriptionInfoFromOrders(
+  SupabaseClient client,
+  String userId,
+) async {
+  final rows = await client
+      .from('subscription_orders')
+      .select('is_lifetime,granted_until,status')
+      .eq('user_id', userId)
+      .eq('status', 'paid');
+
+  if (rows.isEmpty) {
+    return const SubscriptionInfo(isPremium: false);
+  }
+
+  final now = DateTime.now().toUtc();
+  DateTime? latestExpiry;
+
+  for (final row in rows) {
+    if (row['is_lifetime'] == true) {
+      return const SubscriptionInfo(isPremium: true, isLifetime: true);
+    }
+
+    final grantedUntilRaw = row['granted_until'] as String?;
+    if (grantedUntilRaw == null || grantedUntilRaw.isEmpty) continue;
+
+    final grantedUntil = DateTime.tryParse(grantedUntilRaw)?.toUtc();
+    if (grantedUntil == null) continue;
+    if (latestExpiry == null || grantedUntil.isAfter(latestExpiry)) {
+      latestExpiry = grantedUntil;
+    }
+  }
+
+  if (latestExpiry != null && latestExpiry.isAfter(now)) {
+    return SubscriptionInfo(
+      isPremium: true,
+      isLifetime: false,
+      expiresAt: latestExpiry,
+    );
+  }
+
+  return const SubscriptionInfo(isPremium: false);
 }
 
 final userRoleProvider = FutureProvider<String>((ref) async {
@@ -146,9 +193,10 @@ final isPremiumProvider = FutureProvider<bool>((ref) async {
         .single();
 
     final role = (response['role'] as String?)?.toLowerCase().trim();
-    return role == 'premium';
+    if (role == 'premium') return true;
+    return _hasActivePremiumOrder(client, user.id);
   } catch (_) {
-    return false;
+    return _hasActivePremiumOrder(client, user.id);
   }
 });
 
@@ -177,6 +225,94 @@ class SubscriptionInfo {
   }
 }
 
+class SubscriptionTransactionItem {
+  final String id;
+  final String userId;
+  final String planId;
+  final String planName;
+  final int amount;
+  final String currency;
+  final int orderCode;
+  final String status;
+  final String provider;
+  final bool isLifetime;
+  final DateTime? paidAt;
+  final DateTime createdAt;
+  final DateTime? grantedUntil;
+
+  const SubscriptionTransactionItem({
+    required this.id,
+    required this.userId,
+    required this.planId,
+    required this.planName,
+    required this.amount,
+    required this.currency,
+    required this.orderCode,
+    required this.status,
+    required this.provider,
+    required this.isLifetime,
+    required this.paidAt,
+    required this.createdAt,
+    required this.grantedUntil,
+  });
+
+  factory SubscriptionTransactionItem.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse('$value') ?? 0;
+    }
+
+    DateTime? parseDate(dynamic value) {
+      if (value is String && value.isNotEmpty) {
+        return DateTime.tryParse(value)?.toLocal();
+      }
+      return null;
+    }
+
+    return SubscriptionTransactionItem(
+      id: '${json['id'] ?? ''}',
+      userId: '${json['user_id'] ?? ''}',
+      planId: '${json['plan_id'] ?? ''}',
+      planName: '${json['plan_name'] ?? ''}',
+      amount: parseInt(json['amount']),
+      currency: '${json['currency'] ?? 'VND'}',
+      orderCode: parseInt(json['order_code']),
+      status: '${json['status'] ?? ''}',
+      provider: '${json['provider'] ?? ''}',
+      isLifetime: json['is_lifetime'] == true,
+      paidAt: parseDate(json['paid_at']),
+      createdAt: parseDate(json['created_at']) ?? DateTime.now(),
+      grantedUntil: parseDate(json['granted_until']),
+    );
+  }
+}
+
+final userTransactionsProvider = FutureProvider<List<SubscriptionTransactionItem>>((
+  ref,
+) async {
+  ref.watch(_authStateTickProvider);
+  ref.watch(_subscriptionRefreshTickProvider);
+
+  final client = Supabase.instance.client;
+  final user = client.auth.currentUser;
+  if (user == null) return const [];
+
+  final rows = await client
+      .from('subscription_orders')
+      .select(
+        'id,user_id,plan_id,plan_name,amount,currency,order_code,status,provider,is_lifetime,paid_at,created_at,granted_until',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', ascending: false);
+
+  return rows
+      .map<SubscriptionTransactionItem>(
+        (row) => SubscriptionTransactionItem.fromJson(row),
+      )
+      .toList();
+});
+
 final subscriptionInfoProvider = FutureProvider<SubscriptionInfo>((ref) async {
   ref.watch(_authStateTickProvider);
   ref.watch(_subscriptionRefreshTickProvider);
@@ -199,7 +335,7 @@ final subscriptionInfoProvider = FutureProvider<SubscriptionInfo>((ref) async {
 
     final role = (response['role'] as String?)?.toLowerCase().trim();
     if (role != 'premium') {
-      return const SubscriptionInfo(isPremium: false);
+      return _subscriptionInfoFromOrders(client, user.id);
     }
 
     final expiresAtRaw = response['premium_expires_at'] as String?;
@@ -218,10 +354,7 @@ final subscriptionInfoProvider = FutureProvider<SubscriptionInfo>((ref) async {
           .eq('is_lifetime', true)
           .limit(1);
 
-      return SubscriptionInfo(
-        isPremium: true,
-        isLifetime: orders.isNotEmpty,
-      );
+      return SubscriptionInfo(isPremium: true, isLifetime: orders.isNotEmpty);
     }
 
     final expiresAt = DateTime.tryParse(expiresAtRaw)?.toUtc();
@@ -236,6 +369,6 @@ final subscriptionInfoProvider = FutureProvider<SubscriptionInfo>((ref) async {
       expiresAt: expiresAt,
     );
   } catch (_) {
-    return const SubscriptionInfo(isPremium: false);
+    return _subscriptionInfoFromOrders(client, user.id);
   }
 });
