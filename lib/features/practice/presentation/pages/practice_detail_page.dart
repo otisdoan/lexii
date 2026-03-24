@@ -531,7 +531,7 @@ class _PracticeContent extends ConsumerWidget {
                   ),
                   onTap: isLocked
                       ? () => context.push('/upgrade')
-                      : () => _showCountModal(context, ref, part),
+                      : () => _onPartTap(context, ref, part),
                 ),
               );
             }),
@@ -541,17 +541,173 @@ class _PracticeContent extends ConsumerWidget {
     );
   }
 
-  void _showCountModal(
+  Future<void> _onPartTap(
     BuildContext context,
     WidgetRef ref,
     PracticePartData part,
-  ) {
+  ) async {
+    final supportsUnansweredMode =
+        (skill == 'listening' || skill == 'reading') &&
+        (part.questionType == 'mcq_audio' || part.questionType == 'mcq_text') &&
+        part.totalQuestions > 0 &&
+        part.totalAnswered > 0;
+
+    if (!supportsUnansweredMode) {
+      _showCountModal(context, ref, part);
+      return;
+    }
+
+    final restartFromStart = await _showRestartChoiceDialog(context);
+    if (restartFromStart == null || !context.mounted) return;
+
+    if (restartFromStart) {
+      _showCountModal(
+        context,
+        ref,
+        part,
+        availableQuestionIds: null,
+        availableTotalOverride: part.totalQuestions,
+        availabilityLabel: 'câu hỏi có sẵn',
+      );
+      return;
+    }
+
+    final unansweredIds = await _loadUnansweredQuestionIds(context, ref, part);
+    if (!context.mounted) return;
+
+    if (unansweredIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Bạn đã hoàn thành tất cả câu hỏi của part này.',
+            style: GoogleFonts.lexend(fontSize: 13, color: Colors.white),
+          ),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _showCountModal(
+      context,
+      ref,
+      part,
+      availableQuestionIds: unansweredIds,
+      availableTotalOverride: unansweredIds.length,
+      availabilityLabel: 'câu chưa làm',
+    );
+  }
+
+  Future<bool?> _showRestartChoiceDialog(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Luyện tập tiếp',
+            style: GoogleFonts.lexend(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSlate800,
+            ),
+          ),
+          content: Text(
+            'Bạn có muốn luyện tập lại từ đầu không?',
+            style: GoogleFonts.lexend(
+              fontSize: 14,
+              color: AppColors.textSlate600,
+              height: 1.5,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                'Từ chối',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                'Chấp nhận',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<List<String>> _loadUnansweredQuestionIds(
+    BuildContext context,
+    WidgetRef ref,
+    PracticePartData part,
+  ) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+
+    try {
+      final repo = ref.read(practiceRepositoryProvider);
+      return await repo.getUnansweredQuestionIdsForPart(
+        partIds: part.partIds,
+        questionType: part.questionType,
+      );
+    } finally {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
+  }
+
+  void _showCountModal(
+    BuildContext context,
+    WidgetRef ref,
+    PracticePartData part, {
+    List<String>? availableQuestionIds,
+    int? availableTotalOverride,
+    String availabilityLabel = 'câu hỏi có sẵn',
+  }) {
     final isSpeakingOrWriting = skill == 'speaking' || skill == 'writing';
-    int selectedCount = part.totalQuestions > 0
+    final totalAvailable = availableTotalOverride ?? part.totalQuestions;
+    int selectedCount = totalAvailable > 0
         ? (isSpeakingOrWriting
-              ? (part.totalQuestions >= 1 ? 1 : part.totalQuestions)
-              : (part.totalQuestions > 10 ? 10 : part.totalQuestions))
-        : part.totalQuestions;
+              ? (totalAvailable >= 1 ? 1 : totalAvailable)
+              : (totalAvailable > 10 ? 10 : totalAvailable))
+        : totalAvailable;
 
     showModalBottomSheet(
       context: context,
@@ -560,7 +716,7 @@ class _PracticeContent extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final opts = _buildOptions(
-            part.totalQuestions,
+            totalAvailable,
             compactStepOne: isSpeakingOrWriting,
           );
 
@@ -631,7 +787,7 @@ class _PracticeContent extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${part.totalQuestions} câu hỏi có sẵn',
+                        '$totalAvailable $availabilityLabel',
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -699,7 +855,7 @@ class _PracticeContent extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          n == part.totalQuestions ? 'Tất cả' : '$n',
+                          n == totalAvailable ? 'Tất cả' : '$n',
                           style: GoogleFonts.lexend(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -712,7 +868,7 @@ class _PracticeContent extends ConsumerWidget {
                     );
                   }).toList(),
                 ),
-                if (part.totalQuestions > 1) ...[
+                if (totalAvailable > 1) ...[
                   const SizedBox(height: 12),
                   SliderTheme(
                     data: SliderTheme.of(ctx).copyWith(
@@ -724,11 +880,9 @@ class _PracticeContent extends ConsumerWidget {
                     ),
                     child: Slider(
                       min: 1,
-                      max: part.totalQuestions.toDouble(),
-                      divisions: part.totalQuestions - 1,
-                      value: selectedCount
-                          .clamp(1, part.totalQuestions)
-                          .toDouble(),
+                      max: totalAvailable.toDouble(),
+                      divisions: totalAvailable - 1,
+                      value: selectedCount.clamp(1, totalAvailable).toDouble(),
                       onChanged: (v) {
                         setModalState(() => selectedCount = v.round());
                       },
@@ -774,7 +928,7 @@ class _PracticeContent extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              'Bạn sẽ luyện $selectedCount câu từ ${part.title}',
+                              'Bạn sẽ luyện $selectedCount câu từ ${part.title}${availableQuestionIds != null ? ' (chưa làm)' : ''}',
                               style: GoogleFonts.lexend(
                                 fontSize: 12,
                                 color: AppColors.textSlate500,
@@ -825,6 +979,7 @@ class _PracticeContent extends ConsumerWidget {
                                   ref,
                                   part,
                                   selectedCount,
+                                  questionIdsPool: availableQuestionIds,
                                 );
                               }
                             : null,
@@ -871,8 +1026,9 @@ class _PracticeContent extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     PracticePartData part,
-    int count,
-  ) async {
+    int count, {
+    List<String>? questionIdsPool,
+  }) async {
     if (skill == 'writing') {
       await context.push(
         '/practice/writing-question',
@@ -897,6 +1053,47 @@ class _PracticeContent extends ConsumerWidget {
         },
       );
       ref.invalidate(speakingPartsProvider);
+      return;
+    }
+
+    if (questionIdsPool != null) {
+      final selectedIds = questionIdsPool.take(count).toList(growable: false);
+      if (selectedIds.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Không còn câu chưa làm để bắt đầu.',
+                style: GoogleFonts.lexend(fontSize: 13, color: Colors.white),
+              ),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      await context.push(
+        '/exam/question',
+        extra: {
+          'testId': part.testId,
+          'testTitle': part.title,
+          'partId': part.testPartId,
+          'partNumber': part.partNumber,
+          'isPracticeMode': true,
+          'questionIds': selectedIds,
+          'randomizeQuestions': false,
+        },
+      );
+
+      if (skill == 'listening') {
+        ref.invalidate(listeningPracticePartsProvider);
+        ref.invalidate(wrongListeningQuestionIdsProvider);
+      } else if (skill == 'reading') {
+        ref.invalidate(readingPracticePartsProvider);
+        ref.invalidate(wrongReadingQuestionIdsProvider);
+      }
       return;
     }
 

@@ -80,6 +80,37 @@ class PracticeRepository {
   PracticeRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
+  static const int _pageSize = 1000;
+
+  Future<List<Map<String, dynamic>>> _fetchAllQuestionsByPartIds({
+    required List<String> partIds,
+    required String columns,
+  }) async {
+    if (partIds.isEmpty) return const <Map<String, dynamic>>[];
+
+    final rows = <Map<String, dynamic>>[];
+    int from = 0;
+
+    while (true) {
+      final page =
+          await _client
+                  .from('questions')
+                  .select(columns)
+                  .inFilter('part_id', partIds)
+                  .range(from, from + _pageSize - 1)
+              as List<dynamic>;
+
+      if (page.isEmpty) break;
+
+      rows.addAll(page.map((e) => Map<String, dynamic>.from(e as Map)));
+
+      if (page.length < _pageSize) break;
+      from += _pageSize;
+    }
+
+    return rows;
+  }
+
   // ── Part display metadata ────────────────────────────────────
   static const _blue50 = Color(0xFFEFF6FF);
   static const _blue600 = Color(0xFF2563EB);
@@ -203,12 +234,10 @@ class PracticeRepository {
 
     final allPartIds = partNumberById.keys.toList();
 
-    final questionsResponse =
-        await _client
-                .from('questions')
-                .select('id, part_id')
-                .inFilter('part_id', allPartIds)
-            as List<dynamic>;
+    final questionsResponse = await _fetchAllQuestionsByPartIds(
+      partIds: allPartIds,
+      columns: 'id, part_id',
+    );
 
     final questionCountsByPartId = <String, int>{};
     for (final q in questionsResponse) {
@@ -366,12 +395,10 @@ class PracticeRepository {
 
     final allPartIds = partNumberById.keys.toList();
 
-    final questionsResponse =
-        await _client
-                .from('questions')
-                .select('id, part_id')
-                .inFilter('part_id', allPartIds)
-            as List<dynamic>;
+    final questionsResponse = await _fetchAllQuestionsByPartIds(
+      partIds: allPartIds,
+      columns: 'id, part_id',
+    );
 
     final questionCountsByPartId = <String, int>{};
     for (final q in questionsResponse) {
@@ -440,6 +467,104 @@ class PracticeRepository {
         questionType: 'mcq_text',
       );
     }).toList();
+  }
+
+  /// Returns unanswered question IDs for one listening/reading practice part.
+  ///
+  /// [partIds] should include all concrete `test_parts.id` that belong to the
+  /// selected aggregated practice part.
+  Future<List<String>> getUnansweredQuestionIdsForPart({
+    required List<String> partIds,
+    required String questionType,
+  }) async {
+    try {
+      if (partIds.isEmpty) return const <String>[];
+
+      final questionRows = await _fetchAllQuestionsByPartIds(
+        partIds: partIds,
+        columns: 'id, part_id, order_index',
+      );
+
+      if (questionRows.isEmpty) return const <String>[];
+
+      final partRank = <String, int>{
+        for (int i = 0; i < partIds.length; i++) partIds[i]: i,
+      };
+
+      final orderedRows =
+          List<Map<String, dynamic>>.from(
+            questionRows.map((e) => Map<String, dynamic>.from(e as Map)),
+          )..sort((a, b) {
+            final partA = a['part_id'] as String? ?? '';
+            final partB = b['part_id'] as String? ?? '';
+            final rankA = partRank[partA] ?? 999999;
+            final rankB = partRank[partB] ?? 999999;
+            if (rankA != rankB) return rankA.compareTo(rankB);
+
+            final orderA = (a['order_index'] as num?)?.toInt() ?? 0;
+            final orderB = (b['order_index'] as num?)?.toInt() ?? 0;
+            return orderA.compareTo(orderB);
+          });
+
+      final allQuestionIds = orderedRows
+          .map((row) => row['id'] as String)
+          .toList(growable: false);
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return allQuestionIds;
+      }
+
+      final answeredIds = <String>{};
+
+      if (questionType == 'mcq_audio') {
+        final historyRows =
+            await _client
+                    .from('listening_answer_history')
+                    .select('question_id')
+                    .eq('user_id', userId)
+                    .inFilter('question_id', allQuestionIds)
+                as List<dynamic>;
+
+        for (final row in historyRows) {
+          final questionId = row['question_id'] as String?;
+          if (questionId != null && questionId.isNotEmpty) {
+            answeredIds.add(questionId);
+          }
+        }
+      } else if (questionType == 'mcq_text') {
+        final answerRows =
+            await _client
+                    .from('answers')
+                    .select('question_id, option_id, attempts!inner(user_id)')
+                    .eq('attempts.user_id', userId)
+                    .inFilter('question_id', allQuestionIds)
+                as List<dynamic>;
+
+        for (final row in answerRows) {
+          final optionId = row['option_id'] as String?;
+          final questionId = row['question_id'] as String?;
+          if (optionId != null &&
+              optionId.isNotEmpty &&
+              questionId != null &&
+              questionId.isNotEmpty) {
+            answeredIds.add(questionId);
+          }
+        }
+      }
+
+      return allQuestionIds
+          .where((questionId) => !answeredIds.contains(questionId))
+          .toList(growable: false);
+    } catch (e, stack) {
+      developer.log(
+        'Error fetching unanswered question ids for practice part: $e',
+        name: 'PracticeRepo',
+        error: e,
+        stackTrace: stack,
+      );
+      return const <String>[];
+    }
   }
 
   // ── Writing metadata ─────────────────────────────────────────

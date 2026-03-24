@@ -42,7 +42,8 @@ class NotebookSection extends ConsumerWidget {
                 subtitle: vocabCount > 0 ? '$vocabCount từ' : 'Chưa có từ vựng',
                 icon: Icons.star,
                 iconColor: AppColors.yellow500,
-                onTap: () => context.push('/theory/vocabulary?tab=learn'),
+                onTap: () =>
+                    context.push('/theory/vocabulary?tab=learn&saved=1'),
               ),
               const SizedBox(width: 16),
               _NotebookCard(
@@ -52,7 +53,7 @@ class NotebookSection extends ConsumerWidget {
                     : 'Chưa có ngữ pháp',
                 icon: Icons.bookmark,
                 iconColor: AppColors.orange500,
-                onTap: () => context.push('/theory/grammar'),
+                onTap: () => context.push('/theory/grammar?saved=1'),
               ),
             ],
           ),

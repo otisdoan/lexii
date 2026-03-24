@@ -45,7 +45,9 @@ class _TheoryVocabularyPageState extends ConsumerState<TheoryVocabularyPage> {
   String _learnSearch = '';
   int? _lessonFilter;
   String? _scoreFilter;
+  bool _savedOnlyFilter = false;
   int _page = 0;
+  Set<String> _savedWordIds = <String>{};
   Timer? _dictionaryDebounce;
   final AudioPlayer _dictionaryAudioPlayer = AudioPlayer();
   StreamSubscription<PlayerState>? _dictionaryPlayerSub;
@@ -57,6 +59,7 @@ class _TheoryVocabularyPageState extends ConsumerState<TheoryVocabularyPage> {
   @override
   void initState() {
     super.initState();
+    _loadSavedVocabularyIds();
     _dictionaryPlayerSub = _dictionaryAudioPlayer.playerStateStream.listen((
       state,
     ) {
@@ -91,9 +94,20 @@ class _TheoryVocabularyPageState extends ConsumerState<TheoryVocabularyPage> {
     super.didChangeDependencies();
     if (_initializedFromRouteTab) return;
 
-    final tab = GoRouterState.of(context).uri.queryParameters['tab'];
+    final params = GoRouterState.of(context).uri.queryParameters;
+    final tab = params['tab'];
     if (tab != null && tab.toLowerCase() == 'learn') {
       _showDictionary = false;
+    }
+
+    final saved = params['saved'];
+    if (saved != null) {
+      final normalized = saved.trim().toLowerCase();
+      if (normalized == '1' || normalized == 'true' || normalized == 'yes') {
+        _savedOnlyFilter = true;
+        _showDictionary = false;
+        _page = 0;
+      }
     }
     _initializedFromRouteTab = true;
   }
@@ -106,6 +120,62 @@ class _TheoryVocabularyPageState extends ConsumerState<TheoryVocabularyPage> {
     _dictionarySearchController.dispose();
     _learnSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSavedVocabularyIds() async {
+    try {
+      final saved = await ref
+          .read(theoryRepositoryProvider)
+          .getSavedVocabularyIds();
+      if (!mounted) return;
+      setState(() {
+        _savedWordIds = saved;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _savedWordIds = <String>{};
+      });
+    }
+  }
+
+  Future<void> _toggleSavedVocabulary(String wordId) async {
+    final wasSaved = _savedWordIds.contains(wordId);
+    final nextSaved = !wasSaved;
+
+    setState(() {
+      if (wasSaved) {
+        _savedWordIds.remove(wordId);
+      } else {
+        _savedWordIds.add(wordId);
+      }
+      _page = 0;
+    });
+
+    try {
+      await ref
+          .read(theoryRepositoryProvider)
+          .setVocabularySaved(vocabularyId: wordId, isSaved: nextSaved);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (wasSaved) {
+          _savedWordIds.add(wordId);
+        } else {
+          _savedWordIds.remove(wordId);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Không lưu được từ vựng lúc này. Vui lòng thử lại.',
+            style: GoogleFonts.lexend(fontSize: 13, color: Colors.white),
+          ),
+          backgroundColor: AppColors.red500,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -176,6 +246,8 @@ class _TheoryVocabularyPageState extends ConsumerState<TheoryVocabularyPage> {
                         page: _page,
                         pageSize: _pageSize,
                         scoreLevels: _scoreLevels,
+                        savedWordIds: _savedWordIds,
+                        savedOnlyFilter: _savedOnlyFilter,
                         onSearchChanged: (value) {
                           setState(() {
                             _learnSearch = value;
@@ -201,6 +273,13 @@ class _TheoryVocabularyPageState extends ConsumerState<TheoryVocabularyPage> {
                             _page = 0;
                           });
                         },
+                        onSavedOnlyChanged: (value) {
+                          setState(() {
+                            _savedOnlyFilter = value;
+                            _page = 0;
+                          });
+                        },
+                        onToggleSaved: _toggleSavedVocabulary,
                         onPageChanged: (value) => setState(() => _page = value),
                       ),
                   ],
@@ -362,9 +441,34 @@ class TheoryGrammarPage extends ConsumerStatefulWidget {
 class _TheoryGrammarPageState extends ConsumerState<TheoryGrammarPage> {
   final TextEditingController _searchController = TextEditingController();
 
+  bool _initializedFromRouteFilter = false;
   int? _lessonFilter;
+  bool _savedOnlyFilter = false;
   String _search = '';
   String? _expandedId;
+  Set<String> _savedGrammarIds = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedGrammarIds();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initializedFromRouteFilter) return;
+
+    final saved = GoRouterState.of(context).uri.queryParameters['saved'];
+    if (saved != null) {
+      final normalized = saved.trim().toLowerCase();
+      if (normalized == '1' || normalized == 'true' || normalized == 'yes') {
+        _savedOnlyFilter = true;
+      }
+    }
+
+    _initializedFromRouteFilter = true;
+  }
 
   @override
   void dispose() {
@@ -372,10 +476,66 @@ class _TheoryGrammarPageState extends ConsumerState<TheoryGrammarPage> {
     super.dispose();
   }
 
+  Future<void> _loadSavedGrammarIds() async {
+    try {
+      final saved = await ref
+          .read(theoryRepositoryProvider)
+          .getSavedGrammarIds();
+      if (!mounted) return;
+      setState(() {
+        _savedGrammarIds = saved;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _savedGrammarIds = <String>{};
+      });
+    }
+  }
+
+  Future<void> _toggleSavedGrammar(String grammarId) async {
+    final wasSaved = _savedGrammarIds.contains(grammarId);
+    final nextSaved = !wasSaved;
+
+    setState(() {
+      if (wasSaved) {
+        _savedGrammarIds.remove(grammarId);
+      } else {
+        _savedGrammarIds.add(grammarId);
+      }
+    });
+
+    try {
+      await ref
+          .read(theoryRepositoryProvider)
+          .setGrammarSaved(grammarId: grammarId, isSaved: nextSaved);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (wasSaved) {
+          _savedGrammarIds.add(grammarId);
+        } else {
+          _savedGrammarIds.remove(grammarId);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Không lưu được ngữ pháp lúc này. Vui lòng thử lại.',
+            style: GoogleFonts.lexend(fontSize: 13, color: Colors.white),
+          ),
+          backgroundColor: AppColors.red500,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final lessonsAsync = ref.watch(lessonNumbersProvider);
     final grammarAsync = ref.watch(grammarProvider(_lessonFilter));
+    final lessons = lessonsAsync.valueOrNull ?? const <int>[];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -393,67 +553,92 @@ class _TheoryGrammarPageState extends ConsumerState<TheoryGrammarPage> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                 children: [
                   const SizedBox(height: 12),
-                  _SearchBox(
-                    controller: _searchController,
-                    value: _search,
-                    hintText: 'Tìm ngữ pháp, công thức, ví dụ...',
-                    onChanged: (value) => setState(() => _search = value),
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() => _search = '');
-                    },
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _SearchBox(
+                          controller: _searchController,
+                          value: _search,
+                          hintText: 'Tìm ngữ pháp, công thức, ví dụ...',
+                          onChanged: (value) => setState(() => _search = value),
+                          onClear: () {
+                            _searchController.clear();
+                            setState(() => _search = '');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () => _openFilterModal(context, lessons),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.borderSlate200,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.filter_list,
+                              color: AppColors.slate700,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   lessonsAsync.when(
-                    data: (lessons) => SizedBox(
-                      height: 34,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _FilterPill(
-                            label: 'Tất cả',
-                            active: _lessonFilter == null,
-                            onTap: () => setState(() => _lessonFilter = null),
-                          ),
-                          for (final lesson in lessons) ...[
-                            const SizedBox(width: 8),
-                            _FilterPill(
-                              label: 'Bài $lesson',
-                              active: _lessonFilter == lesson,
-                              onTap: () =>
-                                  setState(() => _lessonFilter = lesson),
-                            ),
-                          ],
-                        ],
+                    data: (_) => Text(
+                      'Bộ lọc: ${_lessonFilter == null ? 'Tất cả bài' : 'Bài $_lessonFilter'} · ${_savedOnlyFilter ? 'Ngữ pháp đã lưu' : 'Mọi ngữ pháp'}',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        color: AppColors.textSlate500,
                       ),
                     ),
-                    loading: () => const SizedBox(height: 34),
-                    error: (_, __) => const SizedBox(height: 34),
+                    loading: () => Text(
+                      'Đang tải bộ lọc...',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        color: AppColors.textSlate400,
+                      ),
+                    ),
+                    error: (_, __) => Text(
+                      'Không tải được bộ lọc bài học.',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        color: AppColors.red500,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   grammarAsync.when(
                     data: (items) {
                       final query = _search.trim().toLowerCase();
-                      final filtered = query.isEmpty
-                          ? items
-                          : items.where((g) {
-                              final inTitle = g.title.toLowerCase().contains(
-                                query,
-                              );
-                              final inContent = g.content
-                                  .toLowerCase()
-                                  .contains(query);
-                              final inFormula = (g.formula ?? '')
-                                  .toLowerCase()
-                                  .contains(query);
-                              final inExamples = g.examples.any(
-                                (e) => e.toLowerCase().contains(query),
-                              );
-                              return inTitle ||
-                                  inContent ||
-                                  inFormula ||
-                                  inExamples;
-                            }).toList();
+                      final filtered = items.where((g) {
+                        if (_savedOnlyFilter &&
+                            !_savedGrammarIds.contains(g.id)) {
+                          return false;
+                        }
+                        if (query.isEmpty) return true;
+                        final inTitle = g.title.toLowerCase().contains(query);
+                        final inContent = g.content.toLowerCase().contains(
+                          query,
+                        );
+                        final inFormula = (g.formula ?? '')
+                            .toLowerCase()
+                            .contains(query);
+                        final inExamples = g.examples.any(
+                          (e) => e.toLowerCase().contains(query),
+                        );
+                        return inTitle || inContent || inFormula || inExamples;
+                      }).toList();
 
                       if (filtered.isEmpty) {
                         return const _EmptyBox(
@@ -475,6 +660,7 @@ class _TheoryGrammarPageState extends ConsumerState<TheoryGrammarPage> {
                                 child: _GrammarExpandableCard(
                                   item: item,
                                   isOpen: _expandedId == item.id,
+                                  isSaved: _savedGrammarIds.contains(item.id),
                                   onToggle: () {
                                     setState(() {
                                       _expandedId = _expandedId == item.id
@@ -482,6 +668,8 @@ class _TheoryGrammarPageState extends ConsumerState<TheoryGrammarPage> {
                                           : item.id;
                                     });
                                   },
+                                  onToggleSaved: () =>
+                                      _toggleSavedGrammar(item.id),
                                 ),
                               ),
                             )
@@ -505,6 +693,144 @@ class _TheoryGrammarPageState extends ConsumerState<TheoryGrammarPage> {
         currentIndex: 1,
         onTap: (index) => _onNavTap(context, index),
       ),
+    );
+  }
+
+  Future<void> _openFilterModal(BuildContext context, List<int> lessons) async {
+    int? selectedLesson = _lessonFilter;
+    bool selectedSavedOnly = _savedOnlyFilter;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.borderSlate200,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Bộ lọc ngữ pháp',
+                      style: GoogleFonts.lexend(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSlate900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Bài học',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _FilterPill(
+                          label: 'Tất cả bài',
+                          active: selectedLesson == null,
+                          onTap: () =>
+                              setModalState(() => selectedLesson = null),
+                        ),
+                        ...lessons.map(
+                          (lesson) => _FilterPill(
+                            label: 'Bài $lesson',
+                            active: selectedLesson == lesson,
+                            onTap: () =>
+                                setModalState(() => selectedLesson = lesson),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Danh mục',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _FilterPill(
+                          label: 'Mọi ngữ pháp',
+                          active: !selectedSavedOnly,
+                          onTap: () =>
+                              setModalState(() => selectedSavedOnly = false),
+                        ),
+                        _FilterPill(
+                          label: 'Ngữ pháp đã lưu',
+                          active: selectedSavedOnly,
+                          onTap: () =>
+                              setModalState(() => selectedSavedOnly = true),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _lessonFilter = selectedLesson;
+                            _savedOnlyFilter = selectedSavedOnly;
+                          });
+                          Navigator.of(sheetContext).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Áp dụng',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -614,10 +940,14 @@ class _LearnView extends StatelessWidget {
   final int page;
   final int pageSize;
   final List<String> scoreLevels;
+  final Set<String> savedWordIds;
+  final bool savedOnlyFilter;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
   final ValueChanged<int?> onLessonChanged;
   final ValueChanged<String?> onScoreChanged;
+  final ValueChanged<bool> onSavedOnlyChanged;
+  final Future<void> Function(String wordId) onToggleSaved;
   final ValueChanged<int> onPageChanged;
 
   const _LearnView({
@@ -630,10 +960,14 @@ class _LearnView extends StatelessWidget {
     required this.page,
     required this.pageSize,
     required this.scoreLevels,
+    required this.savedWordIds,
+    required this.savedOnlyFilter,
     required this.onSearchChanged,
     required this.onClearSearch,
     required this.onLessonChanged,
     required this.onScoreChanged,
+    required this.onSavedOnlyChanged,
+    required this.onToggleSaved,
     required this.onPageChanged,
   });
 
@@ -682,7 +1016,7 @@ class _LearnView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Bộ lọc: ${lessonFilter == null ? 'Tất cả bài' : 'Bài $lessonFilter'} · ${scoreFilter ?? 'Mọi cấp'}',
+          'Bộ lọc: ${lessonFilter == null ? 'Tất cả bài' : 'Bài $lessonFilter'} · ${scoreFilter ?? 'Mọi cấp'} · ${savedOnlyFilter ? 'Từ vựng đã lưu' : 'Mọi từ vựng'}',
           style: GoogleFonts.lexend(
             fontSize: 11,
             color: AppColors.textSlate500,
@@ -691,12 +1025,17 @@ class _LearnView extends StatelessWidget {
         const SizedBox(height: 8),
         sourceAsync.when(
           data: (words) {
-            final filtered = query.isEmpty
-                ? words
-                : words.where((word) {
-                    return word.word.toLowerCase().contains(query) ||
-                        word.definition.toLowerCase().contains(query);
-                  }).toList();
+            final filtered = words.where((word) {
+              final matchesSearch =
+                  query.isEmpty ||
+                  word.word.toLowerCase().contains(query) ||
+                  word.definition.toLowerCase().contains(query);
+              if (!matchesSearch) return false;
+              if (savedOnlyFilter && !savedWordIds.contains(word.id)) {
+                return false;
+              }
+              return true;
+            }).toList();
 
             if (filtered.isEmpty) {
               return const _EmptyBox(
@@ -711,6 +1050,8 @@ class _LearnView extends StatelessWidget {
               page: page,
               pageSize: pageSize,
               onPageChanged: onPageChanged,
+              savedWordIds: savedWordIds,
+              onToggleSaved: onToggleSaved,
             );
           },
           loading: () => const _ListLoading(count: 5),
@@ -727,6 +1068,7 @@ class _LearnView extends StatelessWidget {
   Future<void> _openFilterModal(BuildContext context, List<int> lessons) async {
     int? selectedLesson = lessonFilter;
     String? selectedScore = scoreFilter;
+    bool selectedSavedOnly = savedOnlyFilter;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -826,6 +1168,34 @@ class _LearnView extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Danh mục',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _FilterPill(
+                          label: 'Mọi từ vựng',
+                          active: !selectedSavedOnly,
+                          onTap: () =>
+                              setModalState(() => selectedSavedOnly = false),
+                        ),
+                        _FilterPill(
+                          label: 'Từ vựng đã lưu',
+                          active: selectedSavedOnly,
+                          onTap: () =>
+                              setModalState(() => selectedSavedOnly = true),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -833,6 +1203,7 @@ class _LearnView extends StatelessWidget {
                         onPressed: () {
                           onLessonChanged(selectedLesson);
                           onScoreChanged(selectedScore);
+                          onSavedOnlyChanged(selectedSavedOnly);
                           Navigator.of(sheetContext).pop();
                         },
                         style: ElevatedButton.styleFrom(
@@ -927,12 +1298,16 @@ class _VocabularyPlayground extends StatefulWidget {
   final List<VocabularyModel> words;
   final int page;
   final int pageSize;
+  final Set<String> savedWordIds;
+  final Future<void> Function(String wordId) onToggleSaved;
   final ValueChanged<int> onPageChanged;
 
   const _VocabularyPlayground({
     required this.words,
     required this.page,
     required this.pageSize,
+    required this.savedWordIds,
+    required this.onToggleSaved,
     required this.onPageChanged,
   });
 
@@ -1002,6 +1377,8 @@ class _VocabularyPlaygroundState extends State<_VocabularyPlayground> {
           words: widget.words,
           page: widget.page,
           pageSize: widget.pageSize,
+          savedWordIds: widget.savedWordIds,
+          onToggleSaved: widget.onToggleSaved,
           onPageChanged: widget.onPageChanged,
           onWordTap: _openWordDetail,
         );
@@ -1124,6 +1501,8 @@ class _VocabularyListSection extends StatelessWidget {
   final List<VocabularyModel> words;
   final int page;
   final int pageSize;
+  final Set<String> savedWordIds;
+  final Future<void> Function(String wordId) onToggleSaved;
   final ValueChanged<int> onPageChanged;
   final ValueChanged<VocabularyModel> onWordTap;
 
@@ -1131,6 +1510,8 @@ class _VocabularyListSection extends StatelessWidget {
     required this.words,
     required this.page,
     required this.pageSize,
+    required this.savedWordIds,
+    required this.onToggleSaved,
     required this.onPageChanged,
     required this.onWordTap,
   });
@@ -1158,7 +1539,12 @@ class _VocabularyListSection extends StatelessWidget {
         ...pageItems.map(
           (word) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: _LearningWordCard(word: word, onTap: () => onWordTap(word)),
+            child: _LearningWordCard(
+              word: word,
+              isSaved: savedWordIds.contains(word.id),
+              onTap: () => onWordTap(word),
+              onToggleSaved: () => onToggleSaved(word.id),
+            ),
           ),
         ),
         if (totalPages > 1)
@@ -3706,9 +4092,16 @@ class _DictionaryApiCard extends StatelessWidget {
 
 class _LearningWordCard extends StatelessWidget {
   final VocabularyModel word;
+  final bool isSaved;
   final VoidCallback onTap;
+  final VoidCallback onToggleSaved;
 
-  const _LearningWordCard({required this.word, required this.onTap});
+  const _LearningWordCard({
+    required this.word,
+    required this.isSaved,
+    required this.onTap,
+    required this.onToggleSaved,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3761,6 +4154,19 @@ class _LearningWordCard extends StatelessWidget {
                               color: AppColors.textSlate400,
                             ),
                           ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: onToggleSaved,
+                          child: Icon(
+                            isSaved
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            size: 20,
+                            color: isSaved
+                                ? const Color(0xFFF59E0B)
+                                : AppColors.textSlate400,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
@@ -4276,12 +4682,16 @@ class _VocabularyWordDetailSheetState
 class _GrammarExpandableCard extends StatelessWidget {
   final GrammarModel item;
   final bool isOpen;
+  final bool isSaved;
   final VoidCallback onToggle;
+  final VoidCallback onToggleSaved;
 
   const _GrammarExpandableCard({
     required this.item,
     required this.isOpen,
+    required this.isSaved,
     required this.onToggle,
+    required this.onToggleSaved,
   });
 
   @override
@@ -4344,6 +4754,24 @@ class _GrammarExpandableCard extends StatelessWidget {
                               ),
                             ),
                         ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onToggleSaved,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      padding: EdgeInsets.zero,
+                      splashRadius: 18,
+                      icon: Icon(
+                        isSaved
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        size: 20,
+                        color: isSaved
+                            ? const Color(0xFFF59E0B)
+                            : AppColors.textSlate400,
                       ),
                     ),
                     Icon(

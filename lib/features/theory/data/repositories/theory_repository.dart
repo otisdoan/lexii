@@ -5,7 +5,7 @@ class TheoryRepository {
   final SupabaseClient _client;
 
   TheoryRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   Future<List<VocabularyModel>> getVocabulary({
     int? lesson,
@@ -58,9 +58,7 @@ class TheoryRepository {
 
   Future<int> getVocabularyCount() async {
     try {
-      final data = await _client
-          .from('vocabulary')
-          .select('id');
+      final data = await _client.from('vocabulary').select('id');
       return (data as List).length;
     } catch (_) {
       return 0;
@@ -69,12 +67,83 @@ class TheoryRepository {
 
   Future<int> getGrammarCount() async {
     try {
-      final data = await _client
-          .from('grammar')
-          .select('id');
+      final data = await _client.from('grammar').select('id');
       return (data as List).length;
     } catch (_) {
       return 0;
     }
+  }
+
+  Future<Set<String>> getSavedVocabularyIds() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return <String>{};
+
+    final data = await _client
+        .from('user_saved_vocabulary')
+        .select('vocabulary_id')
+        .eq('user_id', userId);
+
+    return (data as List)
+        .map((e) => (e as Map<String, dynamic>)['vocabulary_id'] as String)
+        .toSet();
+  }
+
+  Future<Set<String>> getSavedGrammarIds() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return <String>{};
+
+    final data = await _client
+        .from('user_saved_grammar')
+        .select('grammar_id')
+        .eq('user_id', userId);
+
+    return (data as List)
+        .map((e) => (e as Map<String, dynamic>)['grammar_id'] as String)
+        .toSet();
+  }
+
+  Future<void> setVocabularySaved({
+    required String vocabularyId,
+    required bool isSaved,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const AuthException('Bạn cần đăng nhập để lưu từ vựng.');
+    }
+
+    final table = _client.from('user_saved_vocabulary');
+    if (isSaved) {
+      await table.upsert({
+        'user_id': userId,
+        'vocabulary_id': vocabularyId,
+      }, onConflict: 'user_id,vocabulary_id');
+      return;
+    }
+
+    await table
+        .delete()
+        .eq('user_id', userId)
+        .eq('vocabulary_id', vocabularyId);
+  }
+
+  Future<void> setGrammarSaved({
+    required String grammarId,
+    required bool isSaved,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const AuthException('Bạn cần đăng nhập để lưu ngữ pháp.');
+    }
+
+    final table = _client.from('user_saved_grammar');
+    if (isSaved) {
+      await table.upsert({
+        'user_id': userId,
+        'grammar_id': grammarId,
+      }, onConflict: 'user_id,grammar_id');
+      return;
+    }
+
+    await table.delete().eq('user_id', userId).eq('grammar_id', grammarId);
   }
 }
