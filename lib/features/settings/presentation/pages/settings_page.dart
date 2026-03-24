@@ -180,11 +180,9 @@ class SettingsPage extends ConsumerWidget {
                             onTap: () => _showComingSoon(context),
                           ),
                           _SettingsItem(
-                            icon: Icons.alarm_outlined,
-                            label: 'Nhắc nhở học tập',
-                            onTap: () =>
-                                context.push('/settings/study-reminder'),
-                            isLast: true,
+                            icon: Icons.refresh_outlined,
+                            label: 'Làm mới trạng thái Premium',
+                            onTap: () => _refreshSubscriptionStatus(ref, context),
                           ),
                         ],
                       ),
@@ -272,6 +270,23 @@ class SettingsPage extends ConsumerWidget {
           style: GoogleFonts.lexend(color: Colors.white, fontSize: 13),
         ),
         backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _refreshSubscriptionStatus(WidgetRef ref, BuildContext context) {
+    ref.invalidate(isPremiumProvider);
+    ref.invalidate(userRoleProvider);
+    ref.invalidate(subscriptionInfoProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Đã làm mới trạng thái Premium',
+          style: GoogleFonts.lexend(color: Colors.white, fontSize: 13),
+        ),
+        backgroundColor: AppColors.green600,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),

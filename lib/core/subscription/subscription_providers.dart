@@ -193,10 +193,9 @@ final isPremiumProvider = FutureProvider<bool>((ref) async {
         .single();
 
     final role = (response['role'] as String?)?.toLowerCase().trim();
-    if (role == 'premium') return true;
-    return _hasActivePremiumOrder(client, user.id);
+    return role == 'premium';
   } catch (_) {
-    return _hasActivePremiumOrder(client, user.id);
+    return false;
   }
 });
 
@@ -335,7 +334,7 @@ final subscriptionInfoProvider = FutureProvider<SubscriptionInfo>((ref) async {
 
     final role = (response['role'] as String?)?.toLowerCase().trim();
     if (role != 'premium') {
-      return _subscriptionInfoFromOrders(client, user.id);
+      return const SubscriptionInfo(isPremium: false);
     }
 
     final expiresAtRaw = response['premium_expires_at'] as String?;
@@ -369,6 +368,6 @@ final subscriptionInfoProvider = FutureProvider<SubscriptionInfo>((ref) async {
       expiresAt: expiresAt,
     );
   } catch (_) {
-    return _subscriptionInfoFromOrders(client, user.id);
+    return const SubscriptionInfo(isPremium: false);
   }
 });
