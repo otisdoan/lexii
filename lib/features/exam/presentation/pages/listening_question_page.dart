@@ -1045,6 +1045,11 @@ class _ListeningQuestionPageState
                   .where((p) => questions.isNotEmpty && p.id == questions[groupFirstIndex].partId)
                   .firstOrNull
                   ?.partNumber ?? 1;
+            final isReadingPart = currentPartNumber >= 5;
+            final mediaQuestion = questions[groupFirstIndex];
+            final hasPassage = (mediaQuestion.passageContent ?? '').trim().isNotEmpty;
+            final hasImage = mediaQuestion.imageUrl != null;
+            final showMediaCard = !isReadingPart || hasPassage || hasImage;
 
           return Column(
             children: [
@@ -1124,9 +1129,11 @@ class _ListeningQuestionPageState
                           ),
                         ),
 
-                        // ── Media card (audio/image) ───────────────
-                        _buildMediaCard(questions[groupFirstIndex]),
-                        const SizedBox(height: 20),
+                        // ── Media card (audio/image/passage) ───────────────
+                        if (showMediaCard) ...[
+                          _buildMediaCard(mediaQuestion),
+                          const SizedBox(height: 20),
+                        ],
 
                         // ── ALL questions in this group ──────────
                         // Giống web: hiển thị tất cả câu trong group cùng lúc
@@ -1145,8 +1152,9 @@ class _ListeningQuestionPageState
                   ),
                 ),
               ),
-              // Audio bar — fixed at bottom
-              _buildAudioBar(questions[groupFirstIndex], totalQ, questions),
+              // Audio bar — listening only
+              if (!isReadingPart)
+                _buildAudioBar(questions[groupFirstIndex], totalQ, questions),
             ],
           );
         },

@@ -76,6 +76,7 @@ class PracticePartData {
 
 class PracticeRepository {
   final SupabaseClient _client;
+  static const int _maxHeavyReadingQuestions = 300;
 
   PracticeRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
@@ -197,7 +198,7 @@ class PracticeRepository {
         await _client
                 .from('tests')
                 .select('id')
-                .eq('type', 'full_test')
+                .or('type.eq.full_test,type.eq.fulltest,type.ilike.full%')
                 .order('created_at', ascending: true)
             as List<dynamic>;
 
@@ -359,7 +360,7 @@ class PracticeRepository {
         await _client
                 .from('tests')
                 .select('id')
-                .eq('type', 'full_test')
+                .or('type.eq.full_test,type.eq.fulltest,type.ilike.full%')
                 .order('created_at', ascending: true)
             as List<dynamic>;
 
@@ -445,10 +446,13 @@ class PracticeRepository {
 
     return [5, 6, 7].map((partNumber) {
       final partIds = partIdsByNumber[partNumber] ?? const <String>[];
-      final totalQuestions = partIds.fold<int>(
+      final rawTotalQuestions = partIds.fold<int>(
         0,
         (sum, partId) => sum + (questionCountsByPartId[partId] ?? 0),
       );
+      final totalQuestions = (partNumber == 6 || partNumber == 7)
+          ? rawTotalQuestions.clamp(0, _maxHeavyReadingQuestions).toInt()
+          : rawTotalQuestions;
       final stats = progressByPartNumber[partNumber] ?? _PartStats();
 
       return PracticePartData(

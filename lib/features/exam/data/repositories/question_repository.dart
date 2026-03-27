@@ -6,9 +6,228 @@ import 'package:lexii/features/exam/data/models/test_part_model.dart';
 
 class QuestionRepository {
   final SupabaseClient _client;
+  static const int _maxHeavyReadingQuestions = 300;
 
   QuestionRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
+
+  bool _isStatementTimeout(Object error) {
+    if (error is PostgrestException) {
+      final code = error.code ?? '';
+      final message = error.message.toLowerCase();
+      return code == '57014' || message.contains('statement timeout');
+    }
+    final raw = error.toString().toLowerCase();
+    return raw.contains('57014') || raw.contains('statement timeout');
+  }
+
+  List<String> _fallbackPartIdsForTimeout(
+    List<dynamic> partsResponse,
+    List<String> orderedTestIds,
+  ) {
+    if (partsResponse.isEmpty) return const <String>[];
+
+    final preferredTests = orderedTestIds.take(1).toSet();
+    final fallback = <String>[];
+    for (final row in partsResponse) {
+      final map = row as Map<String, dynamic>;
+      final id = map['id'] as String?;
+      final testId = map['test_id'] as String?;
+      if (id == null || testId == null) continue;
+      if (preferredTests.contains(testId)) {
+        fallback.add(id);
+      }
+    }
+
+    if (fallback.isNotEmpty) return fallback;
+
+    final first = partsResponse.first as Map<String, dynamic>;
+    final firstId = first['id'] as String?;
+    if (firstId == null) return const <String>[];
+    return <String>[firstId];
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>> _fetchQuestionOptionsMap(
+    List<String> questionIds,
+  ) async {
+    if (questionIds.isEmpty) return <String, List<Map<String, dynamic>>>{};
+
+    const chunkSize = 400;
+    final map = <String, List<Map<String, dynamic>>>{};
+
+    for (var i = 0; i < questionIds.length; i += chunkSize) {
+      final end = (i + chunkSize > questionIds.length)
+          ? questionIds.length
+          : i + chunkSize;
+      final chunk = questionIds.sublist(i, end);
+
+      final response =
+          await _client
+                  .from('question_options')
+                  .select('id, question_id, content, is_correct')
+                  .inFilter('question_id', chunk)
+              as List<dynamic>;
+
+      for (final row in response) {
+        final data = Map<String, dynamic>.from(row as Map<String, dynamic>);
+        final questionId = data['question_id'] as String?;
+        if (questionId == null) continue;
+
+        map.putIfAbsent(questionId, () => <Map<String, dynamic>>[]).add({
+          'id': data['id'],
+          'content': data['content'],
+          'is_correct': data['is_correct'],
+        });
+      }
+    }
+
+    return map;
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>> _fetchQuestionMediaMap(
+    List<String> questionIds,
+  ) async {
+    if (questionIds.isEmpty) return <String, List<Map<String, dynamic>>>{};
+
+    const chunkSize = 400;
+    final map = <String, List<Map<String, dynamic>>>{};
+
+    for (var i = 0; i < questionIds.length; i += chunkSize) {
+      final end = (i + chunkSize > questionIds.length)
+          ? questionIds.length
+          : i + chunkSize;
+      final chunk = questionIds.sublist(i, end);
+
+      final response =
+          await _client
+                  .from('question_media')
+                  .select('id, question_id, type, url')
+                  .inFilter('question_id', chunk)
+              as List<dynamic>;
+
+      for (final row in response) {
+        final data = Map<String, dynamic>.from(row as Map<String, dynamic>);
+        final questionId = data['question_id'] as String?;
+        if (questionId == null) continue;
+
+        map.putIfAbsent(questionId, () => <Map<String, dynamic>>[]).add({
+          'id': data['id'],
+          'type': data['type'],
+          'url': data['url'],
+        });
+      }
+    }
+
+    return map;
+  }
+
+  // Read questions in small pages to avoid PostgREST statement timeouts.
+  Future<List<dynamic>> _fetchQuestionsByPartIdsPaged(
+    List<String> partIds,
+    int? maxRows,
+  ) async {
+    if (partIds.isEmpty) return const <dynamic>[];
+
+    const partChunkSize = 4;
+    const pageSize = 250;
+    final rows = <Map<String, dynamic>>[];
+
+    for (var i = 0; i < partIds.length; i += partChunkSize) {
+      final end = (i + partChunkSize > partIds.length)
+          ? partIds.length
+          : i + partChunkSize;
+      final partChunk = partIds.sublist(i, end);
+
+      var from = 0;
+      while (true) {
+        final to = from + pageSize - 1;
+        final batch =
+            await _client
+                    .from('questions')
+                    .select(
+                      'id, part_id, passage_id, question_text, order_index',
+                    )
+                    .inFilter('part_id', partChunk)
+                    .order('order_index', ascending: true)
+                    .range(from, to)
+                as List<dynamic>;
+
+        if (batch.isEmpty) break;
+        for (final row in batch) {
+          rows.add(Map<String, dynamic>.from(row as Map<String, dynamic>));
+          if (maxRows != null && rows.length >= maxRows) {
+            break;
+          }
+        }
+
+        if (maxRows != null && rows.length >= maxRows) {
+          break;
+        }
+
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      if (maxRows != null && rows.length >= maxRows) {
+        break;
+      }
+    }
+
+    if (rows.isEmpty) return const <dynamic>[];
+
+    final questionIds = rows
+        .map((q) => q['id'] as String?)
+        .whereType<String>()
+        .toList();
+
+    final optionsByQuestionId = await _fetchQuestionOptionsMap(questionIds);
+    final mediaByQuestionId = await _fetchQuestionMediaMap(questionIds);
+
+    for (final row in rows) {
+      final id = row['id'] as String?;
+      if (id == null) {
+        row['question_options'] = const <Map<String, dynamic>>[];
+        row['question_media'] = const <Map<String, dynamic>>[];
+        continue;
+      }
+
+      row['question_options'] =
+          optionsByQuestionId[id] ?? const <Map<String, dynamic>>[];
+      row['question_media'] =
+          mediaByQuestionId[id] ?? const <Map<String, dynamic>>[];
+    }
+
+    return rows;
+  }
+
+  Future<Map<String, String>> _fetchPassageContentMap(
+    List<String> passageIds,
+  ) async {
+    if (passageIds.isEmpty) return <String, String>{};
+
+    const chunkSize = 200;
+    final passageMap = <String, String>{};
+
+    for (var i = 0; i < passageIds.length; i += chunkSize) {
+      final end = (i + chunkSize > passageIds.length)
+          ? passageIds.length
+          : i + chunkSize;
+      final chunk = passageIds.sublist(i, end);
+
+      final passagesResponse =
+          await _client
+                  .from('passages')
+                  .select('id, content')
+                  .inFilter('id', chunk)
+              as List<dynamic>;
+
+      for (final p in passagesResponse) {
+        passageMap[p['id'] as String] = (p['content'] as String? ?? '');
+      }
+    }
+
+    return passageMap;
+  }
 
   /// Fetch all questions for a test, with options and media
   Future<List<QuestionModel>> getQuestionsByTestId(String testId) async {
@@ -19,18 +238,20 @@ class QuestionRepository {
           .eq('test_id', testId)
           .order('part_number', ascending: true);
 
-      developer.log('Parts for test $testId: $partsResponse',
-          name: 'QuestionRepo');
+      developer.log(
+        'Parts for test $testId: $partsResponse',
+        name: 'QuestionRepo',
+      );
 
       if (partsResponse.isEmpty) return [];
 
-      final partIds =
-          partsResponse.map((p) => p['id'] as String).toList();
+      final partIds = partsResponse.map((p) => p['id'] as String).toList();
 
       // First fetch questions
-      final questionsResponse = await _client
-          .from('questions')
-          .select('''
+      final questionsResponse =
+          await _client
+                  .from('questions')
+                  .select('''
             id,
             part_id,
             passage_id,
@@ -39,11 +260,14 @@ class QuestionRepository {
             question_options (id, content, is_correct),
             question_media (id, type, url)
           ''')
-          .inFilter('part_id', partIds)
-          .order('order_index', ascending: true) as List<dynamic>;
+                  .inFilter('part_id', partIds)
+                  .order('order_index', ascending: true)
+              as List<dynamic>;
 
-      developer.log('Questions fetched: ${questionsResponse.length}',
-          name: 'QuestionRepo');
+      developer.log(
+        'Questions fetched: ${questionsResponse.length}',
+        name: 'QuestionRepo',
+      );
 
       // Collect unique passage IDs referenced by the questions
       final passageIds = questionsResponse
@@ -55,13 +279,17 @@ class QuestionRepository {
       // Fetch passages by their IDs (not part_id) so we never miss any
       final passageMap = <String, String>{};
       if (passageIds.isNotEmpty) {
-        final passagesResponse = await _client
-            .from('passages')
-            .select('id, content')
-            .inFilter('id', passageIds) as List<dynamic>;
+        final passagesResponse =
+            await _client
+                    .from('passages')
+                    .select('id, content')
+                    .inFilter('id', passageIds)
+                as List<dynamic>;
 
-        developer.log('Passages fetched: ${passagesResponse.length}',
-            name: 'QuestionRepo');
+        developer.log(
+          'Passages fetched: ${passagesResponse.length}',
+          name: 'QuestionRepo',
+        );
 
         for (final p in passagesResponse) {
           passageMap[p['id'] as String] = (p['content'] as String? ?? '');
@@ -74,8 +302,12 @@ class QuestionRepository {
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
     } catch (e, stack) {
-      developer.log('Error fetching questions: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching questions: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
@@ -95,8 +327,12 @@ class QuestionRepository {
           .map((json) => TestPartModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e, stack) {
-      developer.log('Error fetching test parts: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching test parts: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
@@ -104,9 +340,10 @@ class QuestionRepository {
   /// Fetch question for a specific part (with passage content if available)
   Future<List<QuestionModel>> getQuestionsByPartId(String partId) async {
     try {
-      final response = await _client
-          .from('questions')
-          .select('''
+      final response =
+          await _client
+                  .from('questions')
+                  .select('''
             id,
             part_id,
             passage_id,
@@ -115,8 +352,9 @@ class QuestionRepository {
             question_options (id, content, is_correct),
             question_media (id, type, url)
           ''')
-          .eq('part_id', partId)
-          .order('order_index', ascending: true) as List<dynamic>;
+                  .eq('part_id', partId)
+                  .order('order_index', ascending: true)
+              as List<dynamic>;
 
       // Collect unique passage IDs to fetch content
       final passageIds = response
@@ -127,10 +365,12 @@ class QuestionRepository {
 
       final passageMap = <String, String>{};
       if (passageIds.isNotEmpty) {
-        final passagesResponse = await _client
-            .from('passages')
-            .select('id, content')
-            .inFilter('id', passageIds) as List<dynamic>;
+        final passagesResponse =
+            await _client
+                    .from('passages')
+                    .select('id, content')
+                    .inFilter('id', passageIds)
+                as List<dynamic>;
         for (final p in passagesResponse) {
           passageMap[p['id'] as String] = (p['content'] as String? ?? '');
         }
@@ -142,44 +382,42 @@ class QuestionRepository {
         return content != null ? q.withPassageContent(content) : q;
       }).toList();
     } catch (e, stack) {
-      developer.log('Error fetching questions by part: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching questions by part: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
 
   /// Fetch questions for one listening part number (1..4) across all full tests.
   Future<List<QuestionModel>> getQuestionsByListeningPartNumber(
-      int partNumber) async {
+    int partNumber,
+  ) async {
     try {
-      final testsResponse = await _client
-          .from('tests')
-          .select('id')
-          .eq('type', 'full_test') as List<dynamic>;
+      final testsResponse =
+          await _client
+                  .from('tests')
+                  .select('id')
+                  .or('type.eq.full_test,type.eq.fulltest,type.ilike.full%')
+              as List<dynamic>;
       if (testsResponse.isEmpty) return [];
 
       final testIds = testsResponse.map((t) => t['id'] as String).toList();
-      final partsResponse = await _client
-          .from('test_parts')
-          .select('id, test_id')
-          .inFilter('test_id', testIds)
-          .eq('part_number', partNumber) as List<dynamic>;
+      final partsResponse =
+          await _client
+                  .from('test_parts')
+                  .select('id, test_id')
+                  .inFilter('test_id', testIds)
+                  .eq('part_number', partNumber)
+              as List<dynamic>;
       if (partsResponse.isEmpty) return [];
 
       final partIds = partsResponse.map((p) => p['id'] as String).toList();
-      final response = await _client
-          .from('questions')
-          .select('''
-            id,
-            part_id,
-            passage_id,
-            question_text,
-            order_index,
-            question_options (id, content, is_correct),
-            question_media (id, type, url)
-          ''')
-          .inFilter('part_id', partIds)
-          .order('order_index', ascending: true) as List<dynamic>;
+      final response = await _fetchQuestionsByPartIdsPaged(partIds, null);
+      if (response.isEmpty) return [];
 
       final passageIds = response
           .map((q) => q['passage_id'] as String?)
@@ -187,22 +425,13 @@ class QuestionRepository {
           .toSet()
           .toList();
 
-      final passageMap = <String, String>{};
-      if (passageIds.isNotEmpty) {
-        final passagesResponse = await _client
-            .from('passages')
-            .select('id, content')
-            .inFilter('id', passageIds) as List<dynamic>;
-        for (final p in passagesResponse) {
-          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
-        }
-      }
+      final passageMap = await _fetchPassageContentMap(passageIds);
 
       final testOrder = <String, int>{};
       for (int i = 0; i < testIds.length; i++) {
         testOrder[testIds[i]] = i;
       }
-      
+
       final partToTest = <String, String>{};
       for (final p in partsResponse) {
         partToTest[p['id'] as String] = p['test_id'] as String;
@@ -234,44 +463,66 @@ class QuestionRepository {
 
       return result;
     } catch (e, stack) {
-      developer.log('Error fetching listening part questions: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching listening part questions: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
 
   /// Fetch questions for one reading part number (5..7) across all full tests.
   Future<List<QuestionModel>> getQuestionsByReadingPartNumber(
-      int partNumber) async {
+    int partNumber,
+  ) async {
     try {
-      final testsResponse = await _client
-          .from('tests')
-          .select('id')
-          .eq('type', 'full_test') as List<dynamic>;
+      final testsResponse =
+          await _client
+                  .from('tests')
+                  .select('id')
+                  .or('type.eq.full_test,type.eq.fulltest,type.ilike.full%')
+              as List<dynamic>;
       if (testsResponse.isEmpty) return [];
 
       final testIds = testsResponse.map((t) => t['id'] as String).toList();
-      final partsResponse = await _client
-          .from('test_parts')
-          .select('id, test_id')
-          .inFilter('test_id', testIds)
-          .eq('part_number', partNumber) as List<dynamic>;
+      final partsResponse =
+          await _client
+                  .from('test_parts')
+                  .select('id, test_id')
+                  .inFilter('test_id', testIds)
+                  .eq('part_number', partNumber)
+              as List<dynamic>;
       if (partsResponse.isEmpty) return [];
 
       final partIds = partsResponse.map((p) => p['id'] as String).toList();
-      final response = await _client
-          .from('questions')
-          .select('''
-            id,
-            part_id,
-            passage_id,
-            question_text,
-            order_index,
-            question_options (id, content, is_correct),
-            question_media (id, type, url)
-          ''')
-          .inFilter('part_id', partIds)
-          .order('order_index', ascending: true) as List<dynamic>;
+      List<dynamic> response;
+      final capRows = (partNumber == 6 || partNumber == 7)
+          ? _maxHeavyReadingQuestions
+          : null;
+      try {
+        response = await _fetchQuestionsByPartIdsPaged(partIds, capRows);
+      } catch (e, stack) {
+        if (!_isStatementTimeout(e)) rethrow;
+
+        final fallbackPartIds = _fallbackPartIdsForTimeout(
+          partsResponse,
+          testIds,
+        );
+        developer.log(
+          'Reading query timeout. Fallback to smaller part set: $fallbackPartIds',
+          name: 'QuestionRepo',
+          error: e,
+          stackTrace: stack,
+        );
+
+        response = await _fetchQuestionsByPartIdsPaged(
+          fallbackPartIds,
+          capRows,
+        );
+      }
+      if (response.isEmpty) return [];
 
       final passageIds = response
           .map((q) => q['passage_id'] as String?)
@@ -279,22 +530,13 @@ class QuestionRepository {
           .toSet()
           .toList();
 
-      final passageMap = <String, String>{};
-      if (passageIds.isNotEmpty) {
-        final passagesResponse = await _client
-            .from('passages')
-            .select('id, content')
-            .inFilter('id', passageIds) as List<dynamic>;
-        for (final p in passagesResponse) {
-          passageMap[p['id'] as String] = (p['content'] as String? ?? '');
-        }
-      }
+      final passageMap = await _fetchPassageContentMap(passageIds);
 
       final testOrder = <String, int>{};
       for (int i = 0; i < testIds.length; i++) {
         testOrder[testIds[i]] = i;
       }
-      
+
       final partToTest = <String, String>{};
       for (final p in partsResponse) {
         partToTest[p['id'] as String] = p['test_id'] as String;
@@ -324,22 +566,34 @@ class QuestionRepository {
         return a.orderIndex.compareTo(b.orderIndex);
       });
 
+      if ((partNumber == 6 || partNumber == 7) &&
+          result.length > _maxHeavyReadingQuestions) {
+        return result.take(_maxHeavyReadingQuestions).toList();
+      }
+
       return result;
     } catch (e, stack) {
-      developer.log('Error fetching reading part questions: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching reading part questions: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
 
   /// Fetch questions by explicit IDs.
-  Future<List<QuestionModel>> getQuestionsByIds(List<String> questionIds) async {
+  Future<List<QuestionModel>> getQuestionsByIds(
+    List<String> questionIds,
+  ) async {
     try {
       if (questionIds.isEmpty) return [];
 
-      final response = await _client
-          .from('questions')
-          .select('''
+      final response =
+          await _client
+                  .from('questions')
+                  .select('''
             id,
             part_id,
             passage_id,
@@ -348,7 +602,8 @@ class QuestionRepository {
             question_options (id, content, is_correct),
             question_media (id, type, url)
           ''')
-          .inFilter('id', questionIds) as List<dynamic>;
+                  .inFilter('id', questionIds)
+              as List<dynamic>;
 
       final passageIds = response
           .map((q) => q['passage_id'] as String?)
@@ -358,10 +613,12 @@ class QuestionRepository {
 
       final passageMap = <String, String>{};
       if (passageIds.isNotEmpty) {
-        final passagesResponse = await _client
-            .from('passages')
-            .select('id, content')
-            .inFilter('id', passageIds) as List<dynamic>;
+        final passagesResponse =
+            await _client
+                    .from('passages')
+                    .select('id, content')
+                    .inFilter('id', passageIds)
+                as List<dynamic>;
         for (final p in passagesResponse) {
           passageMap[p['id'] as String] = (p['content'] as String? ?? '');
         }
@@ -386,32 +643,43 @@ class QuestionRepository {
 
       return result;
     } catch (e, stack) {
-      developer.log('Error fetching questions by ids: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching questions by ids: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
 
   /// Get wrong question IDs for the current user, optionally filtered by listening part.
-  Future<List<String>> getWrongQuestionIds({int? partNumber, int limit = 100}) async {
+  Future<List<String>> getWrongQuestionIds({
+    int? partNumber,
+    int limit = 100,
+  }) async {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return [];
 
-      final rows = await _client
-          .from('wrong_questions')
-          .select('question_id, last_answered_at')
-          .eq('user_id', userId)
-          .order('last_answered_at', ascending: false)
-          .limit(limit) as List<dynamic>;
+      final rows =
+          await _client
+                  .from('wrong_questions')
+                  .select('question_id, last_answered_at')
+                  .eq('user_id', userId)
+                  .order('last_answered_at', ascending: false)
+                  .limit(limit)
+              as List<dynamic>;
 
       final orderedIds = rows.map((r) => r['question_id'] as String).toList();
       if (orderedIds.isEmpty || partNumber == null) return orderedIds;
 
-      final questions = await _client
-          .from('questions')
-          .select('id, part_id')
-          .inFilter('id', orderedIds) as List<dynamic>;
+      final questions =
+          await _client
+                  .from('questions')
+                  .select('id, part_id')
+                  .inFilter('id', orderedIds)
+              as List<dynamic>;
       if (questions.isEmpty) return [];
 
       final partIdByQuestionId = <String, String>{};
@@ -423,10 +691,12 @@ class QuestionRepository {
         partIds.add(pid);
       }
 
-      final parts = await _client
-          .from('test_parts')
-          .select('id, part_number')
-          .inFilter('id', partIds.toList()) as List<dynamic>;
+      final parts =
+          await _client
+                  .from('test_parts')
+                  .select('id, part_number')
+                  .inFilter('id', partIds.toList())
+              as List<dynamic>;
       final numberByPartId = <String, int>{};
       for (final p in parts) {
         numberByPartId[p['id'] as String] = (p['part_number'] as num).toInt();
@@ -442,8 +712,12 @@ class QuestionRepository {
       }
       return filtered;
     } catch (e, stack) {
-      developer.log('Error fetching wrong question ids: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching wrong question ids: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       return [];
     }
   }
@@ -457,20 +731,24 @@ class QuestionRepository {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return [];
 
-      final rows = await _client
-          .from('wrong_questions')
-          .select('question_id, last_answered_at')
-          .eq('user_id', userId)
-          .order('last_answered_at', ascending: false)
-          .limit(limit) as List<dynamic>;
+      final rows =
+          await _client
+                  .from('wrong_questions')
+                  .select('question_id, last_answered_at')
+                  .eq('user_id', userId)
+                  .order('last_answered_at', ascending: false)
+                  .limit(limit)
+              as List<dynamic>;
 
       final orderedIds = rows.map((r) => r['question_id'] as String).toList();
       if (orderedIds.isEmpty) return [];
 
-      final questions = await _client
-          .from('questions')
-          .select('id, part_id')
-          .inFilter('id', orderedIds) as List<dynamic>;
+      final questions =
+          await _client
+                  .from('questions')
+                  .select('id, part_id')
+                  .inFilter('id', orderedIds)
+              as List<dynamic>;
       if (questions.isEmpty) return [];
 
       final partIdByQuestionId = <String, String>{};
@@ -482,10 +760,12 @@ class QuestionRepository {
         partIds.add(pid);
       }
 
-      final parts = await _client
-          .from('test_parts')
-          .select('id, part_number')
-          .inFilter('id', partIds.toList()) as List<dynamic>;
+      final parts =
+          await _client
+                  .from('test_parts')
+                  .select('id, part_number')
+                  .inFilter('id', partIds.toList())
+              as List<dynamic>;
       final numberByPartId = <String, int>{};
       for (final p in parts) {
         numberByPartId[p['id'] as String] = (p['part_number'] as num).toInt();
@@ -502,8 +782,12 @@ class QuestionRepository {
       }
       return filtered;
     } catch (e, stack) {
-      developer.log('Error fetching wrong question ids by part numbers: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching wrong question ids by part numbers: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       return [];
     }
   }
@@ -524,7 +808,9 @@ class QuestionRepository {
       for (int i = 0; i < questions.length; i++) {
         final q = questions[i];
         final selectedIdx = userAnswers[i];
-        if (selectedIdx == null || selectedIdx < 0 || selectedIdx >= q.options.length) {
+        if (selectedIdx == null ||
+            selectedIdx < 0 ||
+            selectedIdx >= q.options.length) {
           continue;
         }
 
@@ -549,14 +835,17 @@ class QuestionRepository {
       if (wrongSelections.isEmpty) return;
 
       final wrongIds = wrongSelections.keys.toList();
-      final existingRows = await _client
-          .from('wrong_questions')
-          .select('question_id, wrong_count')
-          .eq('user_id', userId)
-          .inFilter('question_id', wrongIds) as List<dynamic>;
+      final existingRows =
+          await _client
+                  .from('wrong_questions')
+                  .select('question_id, wrong_count')
+                  .eq('user_id', userId)
+                  .inFilter('question_id', wrongIds)
+              as List<dynamic>;
       final existingCountByQuestion = <String, int>{
         for (final row in existingRows)
-          row['question_id'] as String: (row['wrong_count'] as num?)?.toInt() ?? 0,
+          row['question_id'] as String:
+              (row['wrong_count'] as num?)?.toInt() ?? 0,
       };
 
       final upsertRows = wrongIds.map((questionId) {
@@ -570,13 +859,16 @@ class QuestionRepository {
         };
       }).toList();
 
-      await _client.from('wrong_questions').upsert(
-            upsertRows,
-            onConflict: 'user_id,question_id',
-          );
+      await _client
+          .from('wrong_questions')
+          .upsert(upsertRows, onConflict: 'user_id,question_id');
     } catch (e, stack) {
-      developer.log('Error saving listening practice tracking: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error saving listening practice tracking: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
     }
   }
 
@@ -632,8 +924,10 @@ class QuestionRepository {
       // 3. Bulk insert answers
       if (answerRows.isNotEmpty) {
         await _client.from('answers').insert(answerRows);
-        developer.log('Inserted ${answerRows.length} answers',
-            name: 'QuestionRepo');
+        developer.log(
+          'Inserted ${answerRows.length} answers',
+          name: 'QuestionRepo',
+        );
       }
 
       // 4. Push in-app notification for test completion (non-blocking)
@@ -654,7 +948,8 @@ class QuestionRepository {
           'recipient_user_id': userId,
           'type': 'test_completed',
           'title': 'Ban vua hoan thanh bai test',
-          'body': '${(testTitle != null && testTitle.isNotEmpty) ? testTitle : 'Bai thi TOEIC'} - diem $score luc $dateLabel.',
+          'body':
+              '${(testTitle != null && testTitle.isNotEmpty) ? testTitle : 'Bai thi TOEIC'} - diem $score luc $dateLabel.',
           'metadata': {
             'attemptId': attemptId,
             'testId': testId,
@@ -676,8 +971,12 @@ class QuestionRepository {
 
       return attemptId;
     } catch (e, stack) {
-      developer.log('Error submitting attempt: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error submitting attempt: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
@@ -697,8 +996,12 @@ class QuestionRepository {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e, stack) {
-      developer.log('Error fetching user attempts: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching user attempts: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       return [];
     }
   }
@@ -711,12 +1014,14 @@ class QuestionRepository {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return [];
 
-      final attemptsResponse = await _client
-          .from('attempts')
-          .select('id, test_id, score, submitted_at')
-          .eq('user_id', userId)
-          .order('submitted_at', ascending: false)
-          .limit(limit) as List<dynamic>;
+      final attemptsResponse =
+          await _client
+                  .from('attempts')
+                  .select('id, test_id, score, submitted_at')
+                  .eq('user_id', userId)
+                  .order('submitted_at', ascending: false)
+                  .limit(limit)
+              as List<dynamic>;
 
       if (attemptsResponse.isEmpty) return [];
 
@@ -728,15 +1033,19 @@ class QuestionRepository {
           .toSet()
           .toList();
 
-      final testsResponse = await _client
-          .from('tests')
-          .select('id, title')
-          .inFilter('id', testIds) as List<dynamic>;
+      final testsResponse =
+          await _client
+                  .from('tests')
+                  .select('id, title')
+                  .inFilter('id', testIds)
+              as List<dynamic>;
 
-      final answersResponse = await _client
-          .from('answers')
-          .select('attempt_id, option_id, is_correct')
-          .inFilter('attempt_id', attemptIds) as List<dynamic>;
+      final answersResponse =
+          await _client
+                  .from('answers')
+                  .select('attempt_id, option_id, is_correct')
+                  .inFilter('attempt_id', attemptIds)
+              as List<dynamic>;
 
       final testTitleById = <String, String>{
         for (final row in testsResponse)
@@ -769,15 +1078,20 @@ class QuestionRepository {
           testTitle:
               testTitleById[attempt['test_id'] as String] ?? 'Bài thi TOEIC',
           score: (attempt['score'] as num?)?.toInt() ?? 0,
-          submittedAt: DateTime.tryParse(attempt['submitted_at'] as String? ?? '') ??
+          submittedAt:
+              DateTime.tryParse(attempt['submitted_at'] as String? ?? '') ??
               DateTime.now(),
           answeredCount: answeredByAttemptId[attemptId] ?? 0,
           correctCount: correctByAttemptId[attemptId] ?? 0,
         );
       }).toList();
     } catch (e, stack) {
-      developer.log('Error fetching attempt history: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching attempt history: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       return [];
     }
   }
@@ -805,15 +1119,19 @@ class QuestionRepository {
           .eq('id', testId)
           .maybeSingle();
 
-      final partsResponse = await _client
-          .from('test_parts')
-          .select('id, part_number')
-          .eq('test_id', testId) as List<dynamic>;
+      final partsResponse =
+          await _client
+                  .from('test_parts')
+                  .select('id, part_number')
+                  .eq('test_id', testId)
+              as List<dynamic>;
 
-      final answersResponse = await _client
-          .from('answers')
-          .select('question_id, option_id, is_correct')
-          .eq('attempt_id', attemptId) as List<dynamic>;
+      final answersResponse =
+          await _client
+                  .from('answers')
+                  .select('question_id, option_id, is_correct')
+                  .eq('attempt_id', attemptId)
+              as List<dynamic>;
 
       final questions = await getQuestionsByTestId(testId);
 
@@ -827,7 +1145,8 @@ class QuestionRepository {
       for (final row in answersResponse) {
         final questionId = row['question_id'] as String;
         selectedOptionByQuestionId[questionId] = row['option_id'] as String?;
-        isCorrectByQuestionId[questionId] = (row['is_correct'] as bool?) ?? false;
+        isCorrectByQuestionId[questionId] =
+            (row['is_correct'] as bool?) ?? false;
       }
 
       final orderedQuestions = [...questions]
@@ -848,8 +1167,7 @@ class QuestionRepository {
         );
       }).toList();
 
-      final answeredCount =
-          details.where((detail) => detail.isAnswered).length;
+      final answeredCount = details.where((detail) => detail.isAnswered).length;
       final correctCount = details.where((detail) => detail.isCorrect).length;
 
       return AttemptDetailModel(
@@ -858,15 +1176,21 @@ class QuestionRepository {
         testTitle: (testResponse?['title'] as String?) ?? 'Bài thi TOEIC',
         score: (attemptResponse['score'] as num?)?.toInt() ?? 0,
         submittedAt:
-            DateTime.tryParse(attemptResponse['submitted_at'] as String? ?? '') ??
-                DateTime.now(),
+            DateTime.tryParse(
+              attemptResponse['submitted_at'] as String? ?? '',
+            ) ??
+            DateTime.now(),
         answeredCount: answeredCount,
         correctCount: correctCount,
         questionDetails: details,
       );
     } catch (e, stack) {
-      developer.log('Error fetching attempt detail: $e',
-          name: 'QuestionRepo', error: e, stackTrace: stack);
+      developer.log(
+        'Error fetching attempt detail: $e',
+        name: 'QuestionRepo',
+        error: e,
+        stackTrace: stack,
+      );
       return null;
     }
   }
